@@ -1,0 +1,33 @@
+{
+  "name": "jungle-rooftop-lounge",
+  "version": "1.0.0",
+  "description": "Luxury Bilingual Digital Menu & Lounge Showcase with SQLite Database",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.x"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "node -e \"console.log('Build complete')\""
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.0.1"
+  },
+  "keywords": [
+    "restaurant",
+    "lounge",
+    "menu",
+    "rooftop",
+    "bilingual",
+    "luxury",
+    "sqlite",
+    "arabic",
+    "english",
+    "react",
+    "tailwind"
+  ],
+  "author": "Jungle Rooftop & Lounge",
+  "license": "MIT"
+}
