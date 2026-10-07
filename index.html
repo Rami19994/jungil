@@ -457,21 +457,7 @@
             }
           }
 
-          // 3. If API is not reachable, fallback to static /data/menu.json
-          if (!loaded) {
-            try {
-              const staticRes = await fetch(`/data/menu.json?t=${t}`, fetchOpts);
-              if (staticRes.ok) {
-                const staticData = await staticRes.json();
-                if (staticData.settings) setSettings(staticData.settings);
-                if (Array.isArray(staticData.categories)) setCategories(staticData.categories);
-                if (Array.isArray(staticData.dishes)) setDishes(staticData.dishes);
-                loaded = true;
-              }
-            } catch (_) {}
-          }
-
-          // 4. Final fallback to localStorage if completely offline
+          // 3. Fallback to localStorage cache only if completely offline
           if (!loaded) {
             const cached = JSON.parse(localStorage.getItem('jungle_cache') || '{}');
             if (cached.settings) setSettings(cached.settings);
