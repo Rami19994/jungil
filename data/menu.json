@@ -66,6 +66,23 @@
   ],
   "dishes": [
     {
+      "id": "dish-1791402854153",
+      "categoryId": "steaks",
+      "nameEn": "Gourmet Chicken Shawarma Platter",
+      "nameAr": "شاورما دجاج بريميوم عالفحم",
+      "descEn": "Char-grilled spiced chicken shawarma slices, toasted pita bread, creamy toum garlic dip, pickles & crispy fries",
+      "descAr": "شرائح شاورما دجاج متبلة ومشوية على الفحم، تُقدم مع خبز عربي محمص، ثومية كريمية، مخللات وبطاطا مقرمشة",
+      "price": 25,
+      "image": "/uploads/shawarma_rooftop.jpg",
+      "isChefSpecial": true,
+      "isBestSeller": true,
+      "isVegetarian": false,
+      "isSpicy": false,
+      "inStock": true,
+      "createdAt": "2026-10-07T19:54:14.169Z",
+      "updatedAt": "2026-10-07T19:58:03.382Z"
+    },
+    {
       "id": "dish-real-1",
       "categoryId": "steaks",
       "nameEn": "Prime Ribeye Steak",
@@ -83,5 +100,5 @@
       "updatedAt": "2026-10-07T19:16:16.663Z"
     }
   ],
-  "updatedAt": "2026-10-07T19:38:17.809Z"
+  "updatedAt": "2026-10-07T19:58:03.385Z"
 }
