@@ -807,8 +807,17 @@
                             alt={dish.nameEn}
                             loading="lazy"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                            onError={(e) => { e.target.style.display = 'none'; }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex';
+                            }}
                           />
+                          <div className="hidden absolute inset-0 bg-gradient-to-br from-jungle-900 via-obsidian-900 to-jungle-950 flex-col items-center justify-center border-b border-gold-500/10">
+                            <div className="w-14 h-14 rounded-2xl bg-jungle-800/80 border border-gold-500/30 flex items-center justify-center text-gold-400 shadow-gold-glow-sm">
+                              <Icon name="utensils" className="w-7 h-7" />
+                            </div>
+                            <span className="text-[10px] text-gold-400/70 font-semibold mt-2">{isAr ? 'قائمة جانغل الفاخرة' : 'Jungle Cuisine'}</span>
+                          </div>
                         </div>
                       ) : (
                         <div className="relative aspect-[16/11] sm:aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-jungle-900 via-obsidian-900 to-jungle-950 flex flex-col items-center justify-center border-b border-gold-500/10">
@@ -864,13 +873,15 @@
                           src={dish.image}
                           alt={dish.nameEn}
                           className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover border border-gold-500/30 flex-shrink-0"
-                          onError={(e) => { e.target.style.display = 'none'; }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex';
+                          }}
                         />
-                      ) : (
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-jungle-900 border border-gold-500/20 flex items-center justify-center text-gold-400/80 flex-shrink-0">
-                          <Icon name="utensils" className="w-7 h-7" />
-                        </div>
-                      )}
+                      ) : null}
+                      <div className={`${dish.image ? 'hidden' : 'flex'} w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-jungle-900 border border-gold-500/20 items-center justify-center text-gold-400/80 flex-shrink-0`}>
+                        <Icon name="utensils" className="w-7 h-7" />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <h3 className="font-bold text-xs sm:text-base text-slate-100 truncate">

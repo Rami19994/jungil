@@ -495,7 +495,7 @@ app.post('/api/upload', (req, res) => {
     }
 
     const relativeUrl = `/uploads/${safeFilename}`;
-    res.json({ success: true, url: relativeUrl, extension: ext });
+    res.json({ success: true, url: relativeUrl, base64: base64Data, extension: ext });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

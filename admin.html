@@ -320,6 +320,7 @@
       const [dishSearch, setDishSearch] = useState('');
       const [dishCategoryFilter, setDishCategoryFilter] = useState('all');
       const [dishImagePreview, setDishImagePreview] = useState('');
+      const [isImageProcessing, setIsImageProcessing] = useState(false);
 
       // Toast Notifications
       const [toast, setToast] = useState(null);
@@ -403,92 +404,87 @@
         showToast(isAr ? 'تم تسجيل الخروج بنجاح' : 'Logged out');
       };
 
-      // Image Upload with Instant Preview & Multi-Format Robustness
-      const handleFileUpload = async (file, callback, setPreview) => {
+      // Image Processing & Optimization - Stored directly in SQLite database
+      const handleFileUpload = (file, callback, setPreview) => {
         if (!file) return;
 
-        // 1. Immediately create a local blob URL for instant 0ms preview (never broken)
-        try {
-          const blobUrl = URL.createObjectURL(file);
-          if (setPreview) setPreview(blobUrl);
-        } catch (_) {}
+        setIsImageProcessing(true);
 
-        const getOptimizedBase64 = (f) => {
-          return new Promise((resolve) => {
-            const rawReader = new FileReader();
-            rawReader.onerror = () => resolve('');
-            rawReader.onload = (ev) => {
-              const rawData = ev.target.result;
-              // If SVG or under 500KB, use directly
-              if (f.type === 'image/svg+xml' || (f.size && f.size < 500 * 1024)) {
-                return resolve(rawData);
-              }
-
-              // Otherwise scale with canvas
-              try {
-                const img = new Image();
-                img.onload = () => {
-                  try {
-                    const maxDim = 1400;
-                    let w = img.width || 800;
-                    let h = img.height || 600;
-                    if (w > maxDim || h > maxDim) {
-                      if (w > h) {
-                        h = Math.round((h * maxDim) / w);
-                        w = maxDim;
-                      } else {
-                        w = Math.round((w * maxDim) / h);
-                        h = maxDim;
-                      }
-                    }
-                    const canvas = document.createElement('canvas');
-                    canvas.width = w;
-                    canvas.height = h;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, w, h);
-                    const result = canvas.toDataURL('image/jpeg', 0.88);
-                    if (result && result.length > 100 && result !== 'data:,') {
-                      return resolve(result);
-                    }
-                    resolve(rawData);
-                  } catch (_) {
-                    resolve(rawData);
-                  }
-                };
-                img.onerror = () => resolve(rawData);
-                img.src = rawData;
-              } catch (_) {
-                resolve(rawData);
-              }
-            };
-            rawReader.readAsDataURL(f);
-          });
+        const reader = new FileReader();
+        reader.onerror = () => {
+          setIsImageProcessing(false);
+          showToast(isAr ? 'تعذر قراءة ملف الصورة' : 'Could not read image file', 'error');
         };
 
-        const base64Data = await getOptimizedBase64(file);
-        if (!base64Data) {
-          showToast(isAr ? 'تعذر قراءة ملف الصورة' : 'Could not read image file', 'error');
-          return;
-        }
-
-        try {
-          const res = await fetch('/api/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ base64Data, filename: file.name }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            callback(data.url);
-            showToast(isAr ? 'تم رفع وحفظ الصورة بنجاح' : 'Image uploaded successfully');
-          } else {
-            callback(base64Data);
-            showToast(isAr ? 'تم حفظ الصورة بنجاح' : 'Image applied');
+        reader.onload = (ev) => {
+          const rawData = ev.target.result;
+          if (file.type === 'image/svg+xml') {
+            if (setPreview) setPreview(rawData);
+            callback(rawData);
+            setIsImageProcessing(false);
+            showToast(isAr ? 'تم تجهيز الصورة بنجاح' : 'Image prepared successfully');
+            return;
           }
-        } catch (err) {
-          callback(base64Data);
-          showToast(isAr ? 'تم حفظ الصورة بنجاح' : 'Image applied');
-        }
+
+          const img = new Image();
+          img.onerror = () => {
+            if (setPreview) setPreview(rawData);
+            callback(rawData);
+            setIsImageProcessing(false);
+            showToast(isAr ? 'تم حفظ الصورة بنجاح' : 'Image prepared successfully');
+          };
+
+          img.onload = () => {
+            try {
+              const maxDim = 1200;
+              let w = img.width || 800;
+              let h = img.height || 600;
+              if (w > maxDim || h > maxDim) {
+                if (w > h) {
+                  h = Math.round((h * maxDim) / w);
+                  w = maxDim;
+                } else {
+                  w = Math.round((w * maxDim) / h);
+                  h = maxDim;
+                }
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext('2d');
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              ctx.drawImage(img, 0, 0, w, h);
+
+              let compressed = canvas.toDataURL('image/webp', 0.84);
+              if (!compressed || compressed.length < 100 || compressed === 'data:,') {
+                compressed = canvas.toDataURL('image/jpeg', 0.84);
+              }
+              if (!compressed || compressed.length < 100) {
+                compressed = rawData;
+              }
+
+              if (setPreview) setPreview(compressed);
+              callback(compressed);
+              setIsImageProcessing(false);
+              showToast(isAr ? 'تم تجهيز صورة الوجبة بنجاح لحفظها في قاعدة البيانات' : 'Image ready for database');
+
+              // Also attempt optional background sync to /api/upload if running on writable server
+              fetch('/api/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ base64Data: compressed, filename: file.name }),
+              }).catch(() => {});
+            } catch (_) {
+              if (setPreview) setPreview(rawData);
+              callback(rawData);
+              setIsImageProcessing(false);
+              showToast(isAr ? 'تم حفظ الصورة بنجاح' : 'Image prepared');
+            }
+          };
+          img.src = rawData;
+        };
+        reader.readAsDataURL(file);
       };
 
       // Save Settings
@@ -567,6 +563,8 @@
           inStock: true,
         });
         setDishImagePreview('');
+        setIsImageProcessing(false);
+        if (dishImageFileInputRef.current) dishImageFileInputRef.current.value = '';
         setIsDishModalOpen(true);
       };
 
@@ -587,10 +585,12 @@
           inStock: Boolean(dish.inStock),
         });
         setDishImagePreview(dish.image || '');
+        setIsImageProcessing(false);
+        if (dishImageFileInputRef.current) dishImageFileInputRef.current.value = '';
         setIsDishModalOpen(true);
       };
 
-      // Save Dish
+      // Save Dish directly into SQLite Database
       const handleSaveDish = async (e) => {
         e.preventDefault();
         if (!dishForm.nameEn.trim() || !dishForm.nameAr.trim()) {
@@ -598,30 +598,38 @@
           return;
         }
 
+        const finalImage = dishForm.image || dishImagePreview || '';
         const dishData = {
           ...dishForm,
+          image: finalImage,
           price: Number(dishForm.price) || 0,
         };
 
         try {
           if (editingDish) {
-            await fetch(`/api/dishes/${editingDish.id}`, {
+            const res = await fetch(`/api/dishes/${editingDish.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(dishData),
             });
-            setDishes(prev => prev.map(d => d.id === editingDish.id ? { ...dishData, id: editingDish.id } : d));
-            showToast(isAr ? 'تم تحديث الوجبة بنجاح' : 'Dish updated');
+            if (res.ok) {
+              setDishes(prev => prev.map(d => d.id === editingDish.id ? { ...dishData, id: editingDish.id } : d));
+              showToast(isAr ? 'تم تحديث الوجبة والصورة بنجاح في قاعدة البيانات' : 'Dish updated in database');
+            }
           } else {
             const newId = `dish-${Date.now()}`;
-            await fetch('/api/dishes', {
+            const res = await fetch('/api/dishes', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ ...dishData, id: newId }),
             });
-            setDishes(prev => [{ ...dishData, id: newId }, ...prev]);
-            showToast(isAr ? 'تمت إضافة الوجبة الجديدة بنجاح' : 'New dish added');
+            if (res.ok) {
+              setDishes(prev => [{ ...dishData, id: newId }, ...prev]);
+              showToast(isAr ? 'تمت إضافة الوجبة وحفظ الصورة في قاعدة البيانات' : 'New dish added to database');
+            }
           }
+          // Immediate sync from database
+          setTimeout(() => loadData(), 150);
         } catch (err) {
           showToast(isAr ? 'حدث خطأ أثناء الحفظ' : 'Error saving dish', 'error');
         }
@@ -629,13 +637,14 @@
         setIsDishModalOpen(false);
       };
 
-      // Delete Dish
+      // Delete Dish completely from SQLite Database
       const handleDeleteDish = async (dishId) => {
-        if (window.confirm(isAr ? 'هل أنت متأكد من حذف هذه الوجبة نهائياً من قاعدة البيانات؟' : 'Permanently delete this dish?')) {
+        if (window.confirm(isAr ? 'هل أنت متأكد من حذف هذه الوجبة نهائياً من قاعدة البيانات؟' : 'Permanently delete this dish from database?')) {
           try {
             await fetch(`/api/dishes/${dishId}`, { method: 'DELETE' });
             setDishes(prev => prev.filter(d => d.id !== dishId));
-            showToast(isAr ? 'تم حذف الوجبة نهائياً' : 'Dish deleted');
+            showToast(isAr ? 'تم حذف الوجبة نهائياً من قاعدة البيانات' : 'Dish deleted permanently from database');
+            setTimeout(() => loadData(), 150);
           } catch (err) {
             showToast(isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting dish', 'error');
           }
@@ -1059,13 +1068,15 @@
                             src={dish.image}
                             alt={dish.nameEn}
                             className="w-16 h-16 rounded-lg object-cover border border-gold-500/30 flex-shrink-0"
-                            onError={(e) => { e.target.style.display = 'none'; }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex';
+                            }}
                           />
-                        ) : (
-                          <div className="w-16 h-16 rounded-lg bg-jungle-900 border border-gold-500/20 flex items-center justify-center text-gold-400/60 flex-shrink-0">
-                            <Icon name="utensils" className="w-6 h-6" />
-                          </div>
-                        )}
+                        ) : null}
+                        <div className={`${dish.image ? 'hidden' : 'flex'} w-16 h-16 rounded-lg bg-jungle-900 border border-gold-500/20 items-center justify-center text-gold-400/60 flex-shrink-0`}>
+                          <Icon name="utensils" className="w-6 h-6" />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <h4 className="font-bold text-xs sm:text-sm text-slate-100 truncate">
@@ -1134,13 +1145,15 @@
                                       src={dish.image}
                                       alt={dish.nameEn}
                                       className="w-12 h-12 rounded-lg object-cover border border-gold-500/30 flex-shrink-0"
-                                      onError={(e) => { e.target.style.display = 'none'; }}
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex';
+                                      }}
                                     />
-                                  ) : (
-                                    <div className="w-12 h-12 rounded-lg bg-jungle-900 border border-gold-500/20 flex items-center justify-center text-gold-400/60 flex-shrink-0 text-xs">
-                                      <Icon name="utensils" className="w-5 h-5" />
-                                    </div>
-                                  )}
+                                  ) : null}
+                                  <div className={`${dish.image ? 'hidden' : 'flex'} w-12 h-12 rounded-lg bg-jungle-900 border border-gold-500/20 items-center justify-center text-gold-400/60 flex-shrink-0 text-xs`}>
+                                    <Icon name="utensils" className="w-5 h-5" />
+                                  </div>
                                   <div>
                                     <div className="font-bold text-slate-100 text-sm">{dish.nameAr}</div>
                                     <div className="text-gold-400 text-xs">{dish.nameEn}</div>
@@ -1628,7 +1641,14 @@
                       className="hidden"
                     />
 
-                    {(dishImagePreview || dishForm.image) ? (
+                    {isImageProcessing ? (
+                      <div className="rounded-xl p-6 border-2 border-dashed border-gold-500/60 bg-jungle-950/80 flex flex-col items-center justify-center space-y-2">
+                        <div className="w-8 h-8 border-2 border-gold-400 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-xs font-bold text-gold-300">
+                          {isAr ? 'جاري ضغط ومعالجة الصورة وتجهيزها للحفظ في قاعدة البيانات...' : 'Processing and preparing image for database...'}
+                        </p>
+                      </div>
+                    ) : (dishImagePreview || dishForm.image) ? (
                       <div className="flex items-center gap-4">
                         <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-2 border-gold-500/60 shadow-lg flex-shrink-0 bg-jungle-950">
                           <img
@@ -1750,9 +1770,14 @@
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2 rounded-xl bg-gold-500 text-obsidian-950 font-bold shadow-gold-glow hover:bg-gold-400"
+                      disabled={isImageProcessing}
+                      className={`px-5 py-2 rounded-xl font-bold shadow-gold-glow transition flex items-center space-x-2 rtl:space-x-reverse ${isImageProcessing ? 'bg-gold-500/50 cursor-not-allowed text-obsidian-900' : 'bg-gold-500 text-obsidian-950 hover:bg-gold-400'}`}
                     >
-                      {isAr ? 'حفظ الوجبة' : 'Save Dish'}
+                      {isImageProcessing ? (
+                        <span>{isAr ? 'جاري تجهيز الصورة...' : 'Processing Photo...'}</span>
+                      ) : (
+                        <span>{isAr ? 'حفظ الوجبة' : 'Save Dish'}</span>
+                      )}
                     </button>
                   </div>
                 </form>
