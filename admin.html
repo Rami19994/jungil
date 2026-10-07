@@ -333,14 +333,17 @@
       const dishImageFileInputRef = useRef(null);
       const backupFileInputRef = useRef(null);
 
-      // Load Data from SQLite Backend
+      // Load Data from SQLite Backend (Fast & Real-time)
       const loadData = async () => {
         try {
           setIsLoading(true);
+          const t = Date.now();
+          const fetchOpts = { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } };
+
           const [settingsRes, catsRes, dishesRes] = await Promise.all([
-            fetch('/api/settings').catch(() => null),
-            fetch('/api/categories').catch(() => null),
-            fetch('/api/dishes').catch(() => null),
+            fetch(`/api/settings?t=${t}`, fetchOpts).catch(() => null),
+            fetch(`/api/categories?t=${t}`, fetchOpts).catch(() => null),
+            fetch(`/api/dishes?t=${t}`, fetchOpts).catch(() => null),
           ]);
 
           if (settingsRes && settingsRes.ok) {
@@ -607,6 +610,27 @@
             showToast(isAr ? 'تم حذف الوجبة نهائياً' : 'Dish deleted');
           } catch (err) {
             showToast(isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting dish', 'error');
+          }
+        }
+      };
+
+      // Clear All Dishes to start completely fresh with real data
+      const handleClearAllDishes = async () => {
+        if (dishes.length === 0) {
+          alert(isAr ? 'لا توجد أي أطباق حالياً لحذفها' : 'No dishes to delete');
+          return;
+        }
+        if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف جميع الأطباق الحالية؟ ستصبح القائمة فارغة تماماً لتتمكن من إدخال وجباتك الحقيقية.' : 'Are you sure you want to delete ALL current dishes to start clean with real data?')) {
+          try {
+            const res = await fetch('/api/dishes/clear-all', { method: 'POST' });
+            if (res.ok) {
+              setDishes([]);
+              showToast(isAr ? 'تم حذف جميع الأطباق بنجاح! يمكنك الآن إضافة بياناتك الحقيقية' : 'All dishes cleared successfully');
+            } else {
+              showToast(isAr ? 'حدث خطأ أثناء مسح الأطباق' : 'Error clearing dishes', 'error');
+            }
+          } catch (err) {
+            showToast(isAr ? 'حدث خطأ في الاتصال' : 'Connection error', 'error');
           }
         }
       };
@@ -934,15 +958,27 @@
                 </button>
               </div>
 
-              <div>
+              <div className="flex items-center gap-2">
                 {activeTab === 'dishes' && (
-                  <button
-                    onClick={openAddDishModal}
-                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-400 text-obsidian-950 font-bold text-xs sm:text-sm shadow-gold-glow flex items-center justify-center space-x-1.5 rtl:space-x-reverse active:scale-95 transition"
-                  >
-                    <Icon name="plus" className="w-4 h-4" />
-                    <span>{isAr ? '+ إضافة وجبة جديدة' : '+ Add New Dish'}</span>
-                  </button>
+                  <>
+                    {dishes.length > 0 && (
+                      <button
+                        onClick={handleClearAllDishes}
+                        className="px-3.5 py-2.5 rounded-xl bg-red-950/80 hover:bg-red-700 text-red-200 border border-red-500/40 font-bold text-xs shadow transition flex items-center space-x-1.5 rtl:space-x-reverse active:scale-95"
+                        title={isAr ? 'حذف كافة الأطباق للبدء ببيانات حقيقية' : 'Clear all current dishes'}
+                      >
+                        <Icon name="trash" className="w-3.5 h-3.5" />
+                        <span>{isAr ? 'حذف كافة الأطباق (بدء جديد)' : 'Clear All Dishes'}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={openAddDishModal}
+                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-400 text-obsidian-950 font-bold text-xs sm:text-sm shadow-gold-glow flex items-center justify-center space-x-1.5 rtl:space-x-reverse active:scale-95 transition"
+                    >
+                      <Icon name="plus" className="w-4 h-4" />
+                      <span>{isAr ? '+ إضافة وجبة جديدة' : '+ Add New Dish'}</span>
+                    </button>
+                  </>
                 )}
                 {activeTab === 'categories' && (
                   <button

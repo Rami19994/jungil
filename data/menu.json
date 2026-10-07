@@ -1,0 +1,87 @@
+{
+  "settings": {
+    "restaurantNameEn": "Jungle",
+    "restaurantNameAr": "جانغل",
+    "taglineEn": "Rooftop & Lounge Dining Experience",
+    "taglineAr": "تجربة طعام وسهرات استثنائية على الروف توب",
+    "subtitleEn": "Panoramic Skyline • Prime Botanical Cuts • Artisanal Mixology",
+    "subtitleAr": "إطلالة أفق بانورامية • أرقى قطع اللحوم • كوكتيلات فاخرة",
+    "addressEn": "Ankawa, Main Street, Luxury Hotel",
+    "addressAr": "عنكاوة - الشارع الرئيسي - فندق luxury",
+    "mapUrl": "https://maps.app.goo.gl/xiSWgf6a2JBKpTya9",
+    "logoUrl": "/uploads/img_1791311494909_5435.png",
+    "heroBgUrl": "/uploads/img_1791311466189_1063.png",
+    "isInitialized": "true"
+  },
+  "categories": [
+    {
+      "id": "steaks",
+      "nameEn": "Steaks & Grills",
+      "nameAr": "مشاوي وستيك فاخر",
+      "icon": "flame",
+      "displayOrder": 1
+    },
+    {
+      "id": "appetizers",
+      "nameEn": "Appetizers & Tapas",
+      "nameAr": "مقبلات وتاباس",
+      "icon": "utensils",
+      "displayOrder": 2
+    },
+    {
+      "id": "sushi",
+      "nameEn": "Sushi & Raw Bar",
+      "nameAr": "سوشي ومأكولات بحرية",
+      "icon": "sparkles",
+      "displayOrder": 3
+    },
+    {
+      "id": "cocktails",
+      "nameEn": "Signature Cocktails",
+      "nameAr": "كوكتيلات مميزة",
+      "icon": "wine",
+      "displayOrder": 4
+    },
+    {
+      "id": "mocktails",
+      "nameEn": "Mocktails & Tonics",
+      "nameAr": "موكتيلات وعصائر",
+      "icon": "coffee",
+      "displayOrder": 5
+    },
+    {
+      "id": "desserts",
+      "nameEn": "Decadent Desserts",
+      "nameAr": "حلويات فاخرة",
+      "icon": "star",
+      "displayOrder": 6
+    },
+    {
+      "id": "shisha",
+      "nameEn": "Shisha & Lounge",
+      "nameAr": "شيشة ولاونج سهرات",
+      "icon": "flame",
+      "displayOrder": 7
+    }
+  ],
+  "dishes": [
+    {
+      "id": "dish-real-1",
+      "categoryId": "steaks",
+      "nameEn": "Prime Ribeye Steak",
+      "nameAr": "ستيك ريب آي فاخر",
+      "descEn": "Charred prime Angus beef with woodland mushroom sauce",
+      "descAr": "لحم أنغوس مشوي بصلصة الفطر",
+      "price": 35,
+      "image": "/uploads/img_1791302859272_8936.png",
+      "isChefSpecial": false,
+      "isBestSeller": false,
+      "isVegetarian": false,
+      "isSpicy": false,
+      "inStock": true,
+      "createdAt": "2026-10-07T19:16:16.663Z",
+      "updatedAt": "2026-10-07T19:16:16.663Z"
+    }
+  ],
+  "updatedAt": "2026-10-07T19:17:36.364Z"
+}
