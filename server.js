@@ -548,22 +548,24 @@ app.post('/api/upload', (req, res) => {
       return res.status(400).json({ error: 'No image data provided' });
     }
 
-    const matches = base64Data.match(/^data:([A-Za-z-+\/0-9.]+);base64,(.+)$/);
-    let buffer;
-    let ext = 'webp';
+    let cleanBase64 = base64Data;
+    let ext = 'jpg';
 
-    if (matches && matches.length === 3) {
-      const mime = matches[1].toLowerCase();
-      if (mime.includes('webp')) ext = 'webp';
-      else if (mime.includes('png')) ext = 'png';
-      else if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
-      else if (mime.includes('svg')) ext = 'svg';
-      else if (mime.includes('gif')) ext = 'gif';
-      else if (mime.includes('avif')) ext = 'avif';
-      buffer = Buffer.from(matches[2], 'base64');
-    } else {
-      buffer = Buffer.from(base64Data, 'base64');
+    if (base64Data.includes(',')) {
+      const parts = base64Data.split(',');
+      const meta = parts[0].toLowerCase();
+      cleanBase64 = parts.slice(1).join(',');
+
+      if (meta.includes('webp')) ext = 'webp';
+      else if (meta.includes('png')) ext = 'png';
+      else if (meta.includes('svg')) ext = 'svg';
+      else if (meta.includes('gif')) ext = 'gif';
+      else if (meta.includes('avif')) ext = 'avif';
+      else if (meta.includes('jpeg') || meta.includes('jpg')) ext = 'jpg';
     }
+
+    // Strip any whitespace/newlines that might corrupt binary decoding
+    const buffer = Buffer.from(cleanBase64.replace(/\s+/g, ''), 'base64');
 
     const safeFilename = `img_${Date.now()}_${Math.floor(Math.random() * 10000)}.${ext}`;
 

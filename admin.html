@@ -319,6 +319,7 @@
       // Filter & Search inside Admin Dishes
       const [dishSearch, setDishSearch] = useState('');
       const [dishCategoryFilter, setDishCategoryFilter] = useState('all');
+      const [dishImagePreview, setDishImagePreview] = useState('');
 
       // Toast Notifications
       const [toast, setToast] = useState(null);
@@ -402,49 +403,74 @@
         showToast(isAr ? 'تم تسجيل الخروج بنجاح' : 'Logged out');
       };
 
-      // Image Upload with Client-Side Optimization (resizes to max 1200px, WebP format)
-      const handleFileUpload = async (file, callback) => {
+      // Image Upload with Instant Preview & Multi-Format Robustness
+      const handleFileUpload = async (file, callback, setPreview) => {
         if (!file) return;
+
+        // 1. Immediately create a local blob URL for instant 0ms preview (never broken)
+        try {
+          const blobUrl = URL.createObjectURL(file);
+          if (setPreview) setPreview(blobUrl);
+        } catch (_) {}
 
         const getOptimizedBase64 = (f) => {
           return new Promise((resolve) => {
-            if (f.type === 'image/svg+xml') {
-              const r = new FileReader();
-              r.onload = (ev) => resolve(ev.target.result);
-              r.readAsDataURL(f);
-              return;
-            }
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-              const img = new Image();
-              img.onload = () => {
-                const maxDim = 1200;
-                let w = img.width;
-                let h = img.height;
-                if (w > maxDim || h > maxDim) {
-                  if (w > h) {
-                    h = Math.round((h * maxDim) / w);
-                    w = maxDim;
-                  } else {
-                    w = Math.round((w * maxDim) / h);
-                    h = maxDim;
+            const rawReader = new FileReader();
+            rawReader.onerror = () => resolve('');
+            rawReader.onload = (ev) => {
+              const rawData = ev.target.result;
+              // If SVG or under 500KB, use directly
+              if (f.type === 'image/svg+xml' || (f.size && f.size < 500 * 1024)) {
+                return resolve(rawData);
+              }
+
+              // Otherwise scale with canvas
+              try {
+                const img = new Image();
+                img.onload = () => {
+                  try {
+                    const maxDim = 1400;
+                    let w = img.width || 800;
+                    let h = img.height || 600;
+                    if (w > maxDim || h > maxDim) {
+                      if (w > h) {
+                        h = Math.round((h * maxDim) / w);
+                        w = maxDim;
+                      } else {
+                        w = Math.round((w * maxDim) / h);
+                        h = maxDim;
+                      }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const result = canvas.toDataURL('image/jpeg', 0.88);
+                    if (result && result.length > 100 && result !== 'data:,') {
+                      return resolve(result);
+                    }
+                    resolve(rawData);
+                  } catch (_) {
+                    resolve(rawData);
                   }
-                }
-                const canvas = document.createElement('canvas');
-                canvas.width = w;
-                canvas.height = h;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, w, h);
-                resolve(canvas.toDataURL('image/webp', 0.85));
-              };
-              img.onerror = () => resolve(ev.target.result);
-              img.src = ev.target.result;
+                };
+                img.onerror = () => resolve(rawData);
+                img.src = rawData;
+              } catch (_) {
+                resolve(rawData);
+              }
             };
-            reader.readAsDataURL(f);
+            rawReader.readAsDataURL(f);
           });
         };
 
         const base64Data = await getOptimizedBase64(file);
+        if (!base64Data) {
+          showToast(isAr ? 'تعذر قراءة ملف الصورة' : 'Could not read image file', 'error');
+          return;
+        }
+
         try {
           const res = await fetch('/api/upload', {
             method: 'POST',
@@ -540,6 +566,7 @@
           isSpicy: false,
           inStock: true,
         });
+        setDishImagePreview('');
         setIsDishModalOpen(true);
       };
 
@@ -559,6 +586,7 @@
           isSpicy: Boolean(dish.isSpicy),
           inStock: Boolean(dish.inStock),
         });
+        setDishImagePreview(dish.image || '');
         setIsDishModalOpen(true);
       };
 
@@ -1595,18 +1623,23 @@
                       accept={ACCEPTED_IMAGE_TYPES}
                       onChange={(e) => {
                         const file = e.target.files[0];
-                        if (file) handleFileUpload(file, (url) => setDishForm(prev => ({ ...prev, image: url })));
+                        if (file) handleFileUpload(file, (url) => setDishForm(prev => ({ ...prev, image: url })), setDishImagePreview);
                       }}
                       className="hidden"
                     />
 
-                    {dishForm.image ? (
+                    {(dishImagePreview || dishForm.image) ? (
                       <div className="flex items-center gap-4">
                         <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-2 border-gold-500/60 shadow-lg flex-shrink-0 bg-jungle-950">
                           <img
-                            src={dishForm.image}
+                            src={dishImagePreview || dishForm.image}
                             alt="Dish Preview"
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              if (dishImagePreview && e.target.src !== dishImagePreview) {
+                                e.target.src = dishImagePreview;
+                              }
+                            }}
                           />
                         </div>
                         <div className="space-y-2 flex-1">
@@ -1622,6 +1655,7 @@
                             type="button"
                             onClick={() => {
                               setDishForm(prev => ({ ...prev, image: '' }));
+                              setDishImagePreview('');
                               if (dishImageFileInputRef.current) dishImageFileInputRef.current.value = '';
                             }}
                             className="px-3.5 py-1.5 rounded-xl bg-red-950/80 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/40 text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse"
