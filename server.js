@@ -26,11 +26,6 @@ app.use(express.static(__dirname));
 const isVercel = Boolean(process.env.VERCEL || process.env.NOW_REGION);
 
 // Paths
-const dataDir = isVercel ? path.join('/tmp', 'data') : path.join(__dirname, 'data');
-if (!fs.existsSync(dataDir)) {
-  try { fs.mkdirSync(dataDir, { recursive: true }); } catch (_) {}
-}
-
 const localUploadsDir = path.join(__dirname, 'uploads');
 const tmpUploadsDir = path.join('/tmp', 'uploads');
 if (!fs.existsSync(localUploadsDir)) {
@@ -46,18 +41,15 @@ if (isVercel) {
   app.use('/uploads', express.static(tmpUploadsDir));
 }
 
-// SQLite 3 Database File Paths (pure menu.sqlite3 matching requested architecture)
+// SQLite 3 Database File Path - single source of truth: menu.sqlite3
 const dbFileName = 'menu.sqlite3';
-const dbPath = path.join(dataDir, dbFileName);
-const seedDbPath = path.join(__dirname, 'data', dbFileName);
-const altSeedDbPath = path.join(__dirname, 'data', 'restaurant.sqlite3');
+const seedDbPath = path.join(__dirname, dbFileName);
+const dbPath = isVercel ? path.join('/tmp', dbFileName) : seedDbPath;
 
-// On Vercel, copy pre-seeded database if /tmp copy doesn't exist yet
+// On Vercel, copy pre-seeded database to /tmp if not present yet
 if (isVercel && !fs.existsSync(dbPath)) {
   if (fs.existsSync(seedDbPath)) {
     try { fs.copyFileSync(seedDbPath, dbPath); } catch (_) {}
-  } else if (fs.existsSync(altSeedDbPath)) {
-    try { fs.copyFileSync(altSeedDbPath, dbPath); } catch (_) {}
   }
 }
 
@@ -252,38 +244,27 @@ function deleteLocalImageFile(imageUrl) {
   }
 }
 
-// Sync back to seed copy in data/, update seed.json, and push to Vercel Blob
-async function syncSeedCopy() {
+// Sync database state, update seed.json, and push to Vercel Blob in background
+function syncSeedCopy() {
   menuVersion = Date.now();
   if (fs.existsSync(dbPath)) {
     try {
-      if (!isVercel) {
-        if (dbPath !== seedDbPath) {
-          fs.copyFileSync(dbPath, seedDbPath);
-        }
-        fs.copyFileSync(dbPath, path.join(__dirname, 'menu.sqlite3'));
-        if (altSeedDbPath) {
-          try { fs.copyFileSync(dbPath, altSeedDbPath); } catch (_) {}
-        }
-      }
-
-      // Keep seed.json & data/seed.json synchronized with exact real dishes/categories/settings
       if (typeof dbAll === 'function') {
-        try {
-          const dishes = await dbAll('SELECT * FROM dishes ORDER BY rowid DESC');
-          const categories = await dbAll('SELECT * FROM categories ORDER BY displayOrder ASC');
-          const settingsRows = await dbAll('SELECT key, value FROM settings');
-          const settings = {};
-          for (const r of settingsRows) settings[r.key] = r.value;
-          const seedContent = JSON.stringify({ settings, categories, dishes }, null, 2);
-          fs.writeFileSync(path.join(__dirname, 'seed.json'), seedContent);
-          fs.writeFileSync(path.join(__dirname, 'data', 'seed.json'), seedContent);
-        } catch (_) {}
+        dbAll('SELECT * FROM dishes ORDER BY rowid DESC').then(dishes => {
+          return dbAll('SELECT * FROM categories ORDER BY displayOrder ASC').then(categories => {
+            return dbAll('SELECT key, value FROM settings').then(settingsRows => {
+              const settings = {};
+              for (const r of settingsRows) settings[r.key] = r.value;
+              const seedContent = JSON.stringify({ settings, categories, dishes }, null, 2);
+              try { fs.writeFileSync(path.join(__dirname, 'seed.json'), seedContent); } catch (_) {}
+            });
+          });
+        }).catch(() => {});
       }
     } catch (_) {}
   }
-  // Persistent background sync to Vercel Blob with allowOverwrite: true
-  await syncDbToBlob().catch(() => {});
+  // Sync to Vercel Blob in background (never blocks client HTTP response)
+  syncDbToBlob().catch(() => {});
 }
 
 // Initialize SQLite 3 Tables
@@ -469,7 +450,7 @@ app.post('/api/settings', async (req, res) => {
       await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, finalVal]);
     }
 
-    await syncSeedCopy();
+    syncSeedCopy();
     res.json({ success: true, message: 'Settings updated successfully in SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 settings update error:', err);
@@ -499,7 +480,7 @@ app.post('/api/categories', async (req, res) => {
       [catId, nameEn || '', nameAr || '', icon || 'utensils', Number(displayOrder) || 0]
     );
 
-    await syncSeedCopy();
+    syncSeedCopy();
     res.json({ success: true, id: catId });
   } catch (err) {
     console.error('SQLite 3 category save error:', err);
@@ -525,7 +506,7 @@ app.delete('/api/categories/:id', async (req, res) => {
     await dbRun('DELETE FROM dishes WHERE categoryId = ?', [catId]);
     await dbRun('DELETE FROM categories WHERE id = ?', [catId]);
 
-    await syncSeedCopy();
+    syncSeedCopy();
     res.json({ success: true, message: 'Category and its dishes deleted cleanly from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 category delete error:', err);
@@ -589,7 +570,7 @@ app.post('/api/dishes', async (req, res) => {
       now
     ]);
 
-    await syncSeedCopy();
+    syncSeedCopy();
     res.json({ success: true, id: dishId, image: finalImageUrl });
   } catch (err) {
     console.error('SQLite 3 add dish error:', err);
@@ -640,7 +621,7 @@ app.put('/api/dishes/:id', async (req, res) => {
         now,
         now
       ]);
-      await syncSeedCopy();
+      syncSeedCopy();
       return res.json({ success: true, message: 'Dish saved cleanly in SQLite 3', id: dishId, image: finalImageUrl });
     }
 
@@ -684,7 +665,7 @@ app.put('/api/dishes/:id', async (req, res) => {
       dishId
     ]);
 
-    await syncSeedCopy();
+    syncSeedCopy();
     res.json({ success: true, message: 'Dish updated cleanly in SQLite 3', id: dishId, image: finalImageUrl });
   } catch (err) {
     console.error('SQLite 3 update dish error:', err);
@@ -705,7 +686,7 @@ app.delete('/api/dishes/:id', async (req, res) => {
 
     await dbRun('DELETE FROM dishes WHERE id = ?', [dishId]);
 
-    await syncSeedCopy();
+    syncSeedCopy();
     res.json({ success: true, message: 'Dish deleted completely from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 delete dish error:', err);
@@ -724,7 +705,7 @@ app.post('/api/dishes/clear-all', async (req, res) => {
     }
 
     await dbRun('DELETE FROM dishes;');
-    await syncSeedCopy();
+    syncSeedCopy();
     res.json({ success: true, message: 'All dishes and their images cleared completely from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 clear-all error:', err);
@@ -797,7 +778,7 @@ app.post('/api/reset', async (req, res) => {
       ]);
     }
 
-    await syncSeedCopy();
+    syncSeedCopy();
     res.json({ success: true, message: 'Database reset to clean state with 0 dishes' });
   } catch (err) {
     console.error('SQLite 3 reset error:', err);
@@ -874,7 +855,7 @@ app.post('/api/restore', async (req, res) => {
       }
     }
 
-    await syncSeedCopy();
+    syncSeedCopy();
     res.json({ success: true, message: 'Data restored successfully to SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 restore error:', err);

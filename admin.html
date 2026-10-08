@@ -389,25 +389,6 @@
       useEffect(() => {
         if (isAuthenticated) {
           loadData();
-
-          // Background version check every 2.5s to keep admin in sync with server without refresh
-          let lastVer = null;
-          const interval = setInterval(async () => {
-            try {
-              const res = await fetch('/api/menu-version?t=' + Date.now(), { cache: 'no-store' });
-              if (res.ok) {
-                const data = await res.json();
-                if (data.version && lastVer && data.version !== lastVer) {
-                  lastVer = data.version;
-                  loadData();
-                } else if (data.version) {
-                  lastVer = data.version;
-                }
-              }
-            } catch (_) {}
-          }, 2500);
-
-          return () => clearInterval(interval);
         }
       }, [isAuthenticated]);
 
@@ -685,11 +666,11 @@
           }
 
           setIsDishModalOpen(false);
-          await loadData();
           if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
         } catch (err) {
           console.error('Save dish error:', err);
           showToast(err.message || (isAr ? 'حدث خطأ أثناء الحفظ' : 'Error saving dish'), 'error');
+          await loadData();
         }
       };
 
@@ -707,7 +688,6 @@
               throw new Error(errData.error || (isAr ? 'فشل حذف الوجبة من قاعدة البيانات' : 'Failed to delete dish'));
             }
             showToast(isAr ? 'تم حذف الوجبة نهائياً من قاعدة البيانات SQLite 3' : 'Dish deleted permanently from database');
-            await loadData();
           } catch (err) {
             console.error('Delete error:', err);
             showToast(err.message || (isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting dish'), 'error');
@@ -733,7 +713,6 @@
               throw new Error(errData.error || 'Failed to clear dishes');
             }
             showToast(isAr ? 'تم حذف جميع الأطباق بنجاح من قاعدة البيانات SQLite 3' : 'All dishes cleared from SQLite 3');
-            await loadData();
           } catch (err) {
             showToast(err.message || (isAr ? 'حدث خطأ في الاتصال' : 'Connection error'), 'error');
             await loadData();

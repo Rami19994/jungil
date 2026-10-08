@@ -64,23 +64,5 @@
       "displayOrder": 7
     }
   ],
-  "dishes": [
-    {
-      "id": "dish-shawarma-1",
-      "categoryId": "steaks",
-      "nameEn": "shawarma",
-      "nameAr": "شاورما",
-      "descEn": "Prime authentic shawarma platter served with golden crisp fries and artisanal dips",
-      "descAr": "شاورما لحم أو دجاج فاخرة مع البطاطس المقلية والصلصات المميزة",
-      "price": 25,
-      "image": "/uploads/shawarma_rooftop.jpg",
-      "isChefSpecial": 0,
-      "isBestSeller": 1,
-      "isVegetarian": 0,
-      "isSpicy": 0,
-      "inStock": 1,
-      "createdAt": "2026-10-08T12:08:34.246Z",
-      "updatedAt": "2026-10-08T12:12:41.677Z"
-    }
-  ]
+  "dishes": []
 }
