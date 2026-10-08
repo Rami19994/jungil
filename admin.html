@@ -631,12 +631,15 @@
             const res = await fetch(`/api/dishes/${editingDish.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(dishData),
+              body: JSON.stringify({ ...dishData, id: editingDish.id }),
             });
             if (!res.ok) {
               const errData = await res.json().catch(() => ({}));
               throw new Error(errData.error || (isAr ? 'فشل تحديث الوجبة في قاعدة البيانات' : 'Failed to update dish'));
             }
+            const updateResult = await res.json().catch(() => ({}));
+            const updatedImage = updateResult.image || finalImage;
+            setDishes(prev => prev.map(d => d.id === editingDish.id ? { ...d, ...dishData, image: updatedImage } : d));
             showToast(isAr ? 'تم تحديث الوجبة والصورة بنجاح في قاعدة البيانات SQLite 3' : 'Dish updated in SQLite 3 database');
           } else {
             const newId = `dish-${Date.now()}`;
@@ -649,6 +652,10 @@
               const errData = await res.json().catch(() => ({}));
               throw new Error(errData.error || (isAr ? 'فشل إضافة الوجبة في قاعدة البيانات' : 'Failed to add dish'));
             }
+            const addResult = await res.json().catch(() => ({}));
+            const savedId = addResult.id || newId;
+            const savedImage = addResult.image || finalImage;
+            setDishes(prev => [{ ...dishData, id: savedId, image: savedImage }, ...prev]);
             showToast(isAr ? 'تمت إضافة الوجبة وحفظها في قاعدة البيانات SQLite 3' : 'New dish added to SQLite 3 database');
           }
 
@@ -1570,7 +1577,7 @@
                 </button>
 
                 <h3 className="text-lg sm:text-xl font-bold text-slate-100 gold-gradient-text mb-3">
-                  {editingDish ? (isAr ? 'تعديل الوجبة (حفظ الجديد وحذف القديم)' : 'Edit Dish') : (isAr ? 'إضافة وجبة جديدة للقائمة' : 'Add New Dish')}
+                  {editingDish ? (isAr ? 'تعديل الوجبة' : 'Edit Dish') : (isAr ? 'إضافة وجبة جديدة للقائمة' : 'Add New Dish')}
                 </h3>
 
                 <form onSubmit={handleSaveDish} className="space-y-3.5 text-xs">
