@@ -13,56 +13,6 @@
     "heroBgUrl": "/uploads/img_1791311466189_1063.png",
     "isInitialized": "true"
   },
-  "categories": [
-    {
-      "id": "steaks",
-      "nameEn": "Steaks & Grills",
-      "nameAr": "مشاوي وستيك فاخر",
-      "icon": "flame",
-      "displayOrder": 1
-    },
-    {
-      "id": "appetizers",
-      "nameEn": "Appetizers & Tapas",
-      "nameAr": "مقبلات وتاباس",
-      "icon": "utensils",
-      "displayOrder": 2
-    },
-    {
-      "id": "sushi",
-      "nameEn": "Sushi & Raw Bar",
-      "nameAr": "سوشي ومأكولات بحرية",
-      "icon": "sparkles",
-      "displayOrder": 3
-    },
-    {
-      "id": "cocktails",
-      "nameEn": "Signature Cocktails",
-      "nameAr": "كوكتيلات مميزة",
-      "icon": "wine",
-      "displayOrder": 4
-    },
-    {
-      "id": "mocktails",
-      "nameEn": "Mocktails & Tonics",
-      "nameAr": "موكتيلات وعصائر",
-      "icon": "coffee",
-      "displayOrder": 5
-    },
-    {
-      "id": "desserts",
-      "nameEn": "Decadent Desserts",
-      "nameAr": "حلويات فاخرة",
-      "icon": "star",
-      "displayOrder": 6
-    },
-    {
-      "id": "shisha",
-      "nameEn": "Shisha & Lounge",
-      "nameAr": "شيشة ولاونج سهرات",
-      "icon": "flame",
-      "displayOrder": 7
-    }
-  ],
+  "categories": [],
   "dishes": []
 }

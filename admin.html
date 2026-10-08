@@ -578,7 +578,7 @@
         setDishForm({
           nameEn: '',
           nameAr: '',
-          categoryId: categories[0]?.id || 'steaks',
+          categoryId: categories[0]?.id || 'general',
           price: 25,
           descEn: '',
           descAr: '',
@@ -600,7 +600,7 @@
         setDishForm({
           nameEn: dish.nameEn || '',
           nameAr: dish.nameAr || '',
-          categoryId: dish.categoryId || categories[0]?.id,
+          categoryId: dish.categoryId || categories[0]?.id || 'general',
           price: dish.price || 0,
           descEn: dish.descEn || '',
           descAr: dish.descAr || '',
@@ -766,21 +766,40 @@
         }
       };
 
-      // Delete Category
+      // Delete Category (unrestricted - user can delete any and all categories)
       const handleDeleteCategory = async (catId) => {
-        if (categories.length <= 1) {
-          alert(isAr ? 'يجب أن يبقى تصنيف واحد على الأقل' : 'At least one category required');
-          return;
-        }
-        if (window.confirm(isAr ? 'حذف هذا التصنيف وجميع الأطباق التابعة له؟' : 'Delete category and all its items?')) {
+        if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف هذا التصنيف؟ ستبقى أطباقه معروضة ضمن "جميع التصنيفات"' : 'Delete this category? Dishes will remain under All Categories.')) {
+          setCategories(prev => prev.filter(c => c.id !== catId));
+          setDishes(prev => prev.map(d => d.categoryId === catId ? { ...d, categoryId: '' } : d));
+          if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
+
           try {
             await fetch(`/api/categories/${catId}`, { method: 'DELETE' });
-            setCategories(prev => prev.filter(c => c.id !== catId));
-            setDishes(prev => prev.filter(d => d.categoryId !== catId));
             showToast(isAr ? 'تم حذف التصنيف بنجاح' : 'Category deleted');
-            if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
           } catch (err) {
             showToast(isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting category', 'error');
+            await loadData();
+          }
+        }
+      };
+
+      // Clear All Categories completely
+      const handleClearAllCategories = async () => {
+        if (categories.length === 0) {
+          alert(isAr ? 'لا توجد أي تصنيفات حالياً لحذفها' : 'No categories to delete');
+          return;
+        }
+        if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف كافة التصنيفات؟ سيبقى فقط زر "جميع التصنيفات" على الصفحة الرئيسية' : 'Delete ALL categories? Only "All Categories" will remain on main page.')) {
+          setCategories([]);
+          setDishes(prev => prev.map(d => ({ ...d, categoryId: '' })));
+          if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
+
+          try {
+            await fetch('/api/categories/clear-all', { method: 'POST' });
+            showToast(isAr ? 'تم حذف جميع التصنيفات بنجاح' : 'All categories deleted');
+          } catch (err) {
+            showToast(err.message || (isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting categories'), 'error');
+            await loadData();
           }
         }
       };
@@ -1070,13 +1089,25 @@
                   </>
                 )}
                 {activeTab === 'categories' && (
-                  <button
-                    onClick={() => setIsCategoryModalOpen(true)}
-                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-jungle-600 text-white font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 rtl:space-x-reverse active:scale-95 transition"
-                  >
-                    <Icon name="plus" className="w-4 h-4" />
-                    <span>{isAr ? '+ إضافة تصنيف' : '+ Add Category'}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {categories.length > 0 && (
+                      <button
+                        onClick={handleClearAllCategories}
+                        className="px-3.5 py-2.5 rounded-xl bg-red-950/80 hover:bg-red-700 text-red-200 border border-red-500/40 font-bold text-xs shadow transition flex items-center space-x-1.5 rtl:space-x-reverse active:scale-95"
+                        title={isAr ? 'حذف كافة التصنيفات والإبقاء على جميع الأصناف فقط' : 'Clear all categories'}
+                      >
+                        <Icon name="trash" className="w-3.5 h-3.5" />
+                        <span>{isAr ? 'حذف كافة التصنيفات' : 'Clear All Categories'}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setIsCategoryModalOpen(true)}
+                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-jungle-600 text-white font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 rtl:space-x-reverse active:scale-95 transition"
+                    >
+                      <Icon name="plus" className="w-4 h-4" />
+                      <span>{isAr ? '+ إضافة تصنيف' : '+ Add Category'}</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -1547,35 +1578,49 @@
 
             {/* TAB 3: CATEGORIES MANAGEMENT */}
             {activeTab === 'categories' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {categories.map((cat) => {
-                  const catDishesCount = dishes.filter(d => d.categoryId === cat.id).length;
-                  return (
-                    <div key={cat.id} className="glass-card rounded-2xl p-5 border border-gold-500/20 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="w-10 h-10 rounded-xl bg-jungle-800 border border-gold-500/30 flex items-center justify-center text-gold-400">
-                            <Icon name={cat.icon || 'utensils'} className="w-5 h-5" />
+              categories.length === 0 ? (
+                <div className="text-center py-16 glass-panel rounded-2xl max-w-md mx-auto p-8 border border-gold-500/20">
+                  <Icon name="layers" className="w-12 h-12 text-gold-400/60 mx-auto mb-3" />
+                  <p className="text-slate-200 font-bold mb-1">{isAr ? 'تم حذف كافة التصنيفات' : 'All Categories Deleted'}</p>
+                  <p className="text-xs text-slate-400 mb-4">{isAr ? 'في صفحة المنيو للزبائن، يظهر الآن فقط زر "جميع التصنيفات" لكافة الأطباق.' : 'On the customer menu, only "All Categories" remains active.'}</p>
+                  <button
+                    onClick={() => setIsCategoryModalOpen(true)}
+                    className="px-5 py-2.5 rounded-xl bg-gold-500 text-obsidian-950 font-bold text-xs shadow-gold-glow hover:bg-gold-400 transition"
+                  >
+                    {isAr ? '+ إضافة تصنيف جديد' : '+ Add New Category'}
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {categories.map((cat) => {
+                    const catDishesCount = dishes.filter(d => d.categoryId === cat.id).length;
+                    return (
+                      <div key={cat.id} className="glass-card rounded-2xl p-5 border border-gold-500/20 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="w-10 h-10 rounded-xl bg-jungle-800 border border-gold-500/30 flex items-center justify-center text-gold-400">
+                              <Icon name={cat.icon || 'utensils'} className="w-5 h-5" />
+                            </div>
+                            <span className="text-xs px-2.5 py-1 rounded-full bg-jungle-950 border border-gold-500/30 text-gold-300 font-bold">
+                              {catDishesCount} {isAr ? 'وجبة' : 'items'}
+                            </span>
                           </div>
-                          <span className="text-xs px-2.5 py-1 rounded-full bg-jungle-950 border border-gold-500/30 text-gold-300 font-bold">
-                            {catDishesCount} {isAr ? 'وجبة' : 'items'}
-                          </span>
+                          <h4 className="text-base font-bold text-slate-100">{cat.nameAr}</h4>
+                          <p className="text-gold-300 text-sm mt-0.5">{cat.nameEn}</p>
                         </div>
-                        <h4 className="text-base font-bold text-slate-100">{cat.nameAr}</h4>
-                        <p className="text-gold-300 text-sm mt-0.5">{cat.nameEn}</p>
+                        <div className="mt-4 pt-3 border-t border-slate-800 flex justify-end">
+                          <button
+                            onClick={() => handleDeleteCategory(cat.id)}
+                            className="px-3 py-1.5 rounded-lg bg-red-950/60 hover:bg-red-600 text-red-300 text-xs font-semibold transition"
+                          >
+                            {isAr ? 'حذف التصنيف' : 'Delete Category'}
+                          </button>
+                        </div>
                       </div>
-                      <div className="mt-4 pt-3 border-t border-slate-800 flex justify-end">
-                        <button
-                          onClick={() => handleDeleteCategory(cat.id)}
-                          className="px-3 py-1.5 rounded-lg bg-red-950/60 hover:bg-red-600 text-red-300 text-xs font-semibold transition"
-                        >
-                          {isAr ? 'حذف التصنيف' : 'Delete Category'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )
             )}
           </main>
 
@@ -1630,11 +1675,15 @@
                         onChange={(e) => setDishForm({ ...dishForm, categoryId: e.target.value })}
                         className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400"
                       >
-                        {categories.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {c.nameAr} ({c.nameEn})
-                          </option>
-                        ))}
+                        {categories.length === 0 ? (
+                          <option value="general">{isAr ? 'عام (بدون تصنيف)' : 'General (No Category)'}</option>
+                        ) : (
+                          categories.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.nameAr} ({c.nameEn})
+                            </option>
+                          ))
+                        )}
                       </select>
                     </div>
                     <div>

@@ -511,6 +511,13 @@
           : `${settings.restaurantNameEn} | Luxury Digital Menu`;
       }, [lang, isAr, settings]);
 
+      // Fallback activeCategory to 'all' if selected category is deleted
+      useEffect(() => {
+        if (activeCategory !== 'all' && !categories.some(c => c.id === activeCategory)) {
+          setActiveCategory('all');
+        }
+      }, [categories, activeCategory]);
+
       // Format Price (pure number, zero currency)
       const formatPrice = (price) => {
         return Number(price) || 0;
@@ -722,7 +729,7 @@
                       className={`flex-shrink-0 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse ${activeCategory === 'all' ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-105' : 'glass-panel text-slate-300 hover:text-white'}`}
                     >
                       <Icon name="sparkles" className="w-3.5 h-3.5" />
-                      <span>{isAr ? 'جميع الأصناف' : 'All Items'}</span>
+                      <span>{isAr ? 'جميع التصنيفات' : 'All Categories'}</span>
                       <span className="text-[10px] opacity-80 font-mono">({dishes.length})</span>
                     </button>
 

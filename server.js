@@ -104,7 +104,7 @@ try {
   nativeDb.serialize(() => {
     nativeDb.run('PRAGMA journal_mode = DELETE;');
     nativeDb.run('PRAGMA synchronous = FULL;');
-    nativeDb.run('PRAGMA foreign_keys = ON;');
+    nativeDb.run('PRAGMA foreign_keys = OFF;');
     nativeDb.run('PRAGMA busy_timeout = 5000;');
   });
 
@@ -488,28 +488,34 @@ app.post('/api/categories', async (req, res) => {
   }
 });
 
-// 5. DELETE Category
+// 5. DELETE Category (unrestricted - user can delete any and all categories)
 app.delete('/api/categories/:id', async (req, res) => {
   try {
     const catId = req.params.id;
-    const countRow = await dbGet('SELECT COUNT(*) as count FROM categories');
-    if (countRow && countRow.count <= 1) {
-      return res.status(400).json({ error: 'Cannot delete the only remaining category' });
-    }
 
-    // Delete image files of all dishes under this category
-    const dishes = await dbAll('SELECT image FROM dishes WHERE categoryId = ?', [catId]);
-    for (const d of dishes) {
-      if (d.image) deleteLocalImageFile(d.image);
-    }
-
-    await dbRun('DELETE FROM dishes WHERE categoryId = ?', [catId]);
+    // Unassign category from dishes so they stay safely visible under "جميع التصنيفات"
+    await dbRun('UPDATE dishes SET categoryId = "" WHERE categoryId = ?', [catId]);
     await dbRun('DELETE FROM categories WHERE id = ?', [catId]);
 
     syncSeedCopy();
-    res.json({ success: true, message: 'Category and its dishes deleted cleanly from SQLite 3 database' });
+    res.json({ success: true, message: 'Category deleted cleanly from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 category delete error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 5.1 POST Clear All Categories (keeps only "جميع التصنيفات")
+app.post('/api/categories/clear-all', async (req, res) => {
+  try {
+    // Unassign categories from dishes so dishes remain accessible under "جميع التصنيفات"
+    await dbRun('UPDATE dishes SET categoryId = "";');
+    await dbRun('DELETE FROM categories;');
+
+    syncSeedCopy();
+    res.json({ success: true, message: 'All categories cleared cleanly from SQLite 3 database' });
+  } catch (err) {
+    console.error('SQLite 3 clear-all categories error:', err);
     res.status(500).json({ error: err.message });
   }
 });
