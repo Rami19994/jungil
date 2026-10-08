@@ -9,18 +9,60 @@
     "addressEn": "Ankawa, Main Street, Luxury Hotel",
     "addressAr": "عنكاوة - الشارع الرئيسي - فندق luxury",
     "mapUrl": "https://maps.app.goo.gl/xiSWgf6a2JBKpTya9",
-    "logoUrl": "",
-    "heroBgUrl": "hero-bg.jpg",
+    "logoUrl": "/uploads/img_1791311494909_5435.png",
+    "heroBgUrl": "/uploads/img_1791311466189_1063.png",
     "isInitialized": "true"
   },
   "categories": [
-    { "id": "steaks", "nameEn": "Steaks & Grills", "nameAr": "مشاوي وستيك فاخر", "icon": "flame", "displayOrder": 1 },
-    { "id": "appetizers", "nameEn": "Appetizers & Tapas", "nameAr": "مقبلات وتاباس", "icon": "utensils", "displayOrder": 2 },
-    { "id": "sushi", "nameEn": "Sushi & Raw Bar", "nameAr": "سوشي ومأكولات بحرية", "icon": "sparkles", "displayOrder": 3 },
-    { "id": "cocktails", "nameEn": "Signature Cocktails", "nameAr": "كوكتيلات مميزة", "icon": "wine", "displayOrder": 4 },
-    { "id": "mocktails", "nameEn": "Mocktails & Tonics", "nameAr": "موكتيلات وعصائر", "icon": "coffee", "displayOrder": 5 },
-    { "id": "desserts", "nameEn": "Decadent Desserts", "nameAr": "حلويات فاخرة", "icon": "star", "displayOrder": 6 },
-    { "id": "shisha", "nameEn": "Shisha & Lounge", "nameAr": "شيشة ولاونج سهرات", "icon": "flame", "displayOrder": 7 }
+    {
+      "id": "steaks",
+      "nameEn": "Steaks & Grills",
+      "nameAr": "مشاوي وستيك فاخر",
+      "icon": "flame",
+      "displayOrder": 1
+    },
+    {
+      "id": "appetizers",
+      "nameEn": "Appetizers & Tapas",
+      "nameAr": "مقبلات وتاباس",
+      "icon": "utensils",
+      "displayOrder": 2
+    },
+    {
+      "id": "sushi",
+      "nameEn": "Sushi & Raw Bar",
+      "nameAr": "سوشي ومأكولات بحرية",
+      "icon": "sparkles",
+      "displayOrder": 3
+    },
+    {
+      "id": "cocktails",
+      "nameEn": "Signature Cocktails",
+      "nameAr": "كوكتيلات مميزة",
+      "icon": "wine",
+      "displayOrder": 4
+    },
+    {
+      "id": "mocktails",
+      "nameEn": "Mocktails & Tonics",
+      "nameAr": "موكتيلات وعصائر",
+      "icon": "coffee",
+      "displayOrder": 5
+    },
+    {
+      "id": "desserts",
+      "nameEn": "Decadent Desserts",
+      "nameAr": "حلويات فاخرة",
+      "icon": "star",
+      "displayOrder": 6
+    },
+    {
+      "id": "shisha",
+      "nameEn": "Shisha & Lounge",
+      "nameAr": "شيشة ولاونج سهرات",
+      "icon": "flame",
+      "displayOrder": 7
+    }
   ],
   "dishes": [
     {
@@ -32,26 +74,13 @@
       "descAr": "شاورما لحم أو دجاج فاخرة مع البطاطس المقلية والصلصات المميزة",
       "price": 25,
       "image": "/uploads/shawarma_rooftop.jpg",
-      "isChefSpecial": false,
-      "isBestSeller": true,
-      "isVegetarian": false,
-      "isSpicy": false,
-      "inStock": true
-    },
-    {
-      "id": "dish-real-1",
-      "categoryId": "steaks",
-      "nameEn": "Prime Ribeye Steak",
-      "nameAr": "ستيك ريب آي فاخر",
-      "descEn": "Charred prime Angus beef with woodland mushroom sauce",
-      "descAr": "لحم أنغوس مشوي بصلصة الفطر",
-      "price": 35,
-      "image": "/uploads/dish_dish-real-1.png",
-      "isChefSpecial": false,
-      "isBestSeller": false,
-      "isVegetarian": false,
-      "isSpicy": false,
-      "inStock": true
+      "isChefSpecial": 0,
+      "isBestSeller": 1,
+      "isVegetarian": 0,
+      "isSpicy": 0,
+      "inStock": 1,
+      "createdAt": "2026-10-08T12:08:34.246Z",
+      "updatedAt": "2026-10-08T12:12:41.677Z"
     }
   ]
 }

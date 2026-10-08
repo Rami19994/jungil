@@ -87,8 +87,10 @@ async function syncDbToBlob() {
       await put('menu.sqlite3', buffer, {
         access: 'public',
         addRandomSuffix: false,
+        allowOverwrite: true,
         token: BLOB_TOKEN,
       });
+      console.log('☁️ Database synced to Vercel Blob successfully (allowOverwrite: true)');
     }
   } catch (err) {
     console.warn('Vercel Blob sync notice:', err.message);
@@ -250,22 +252,38 @@ function deleteLocalImageFile(imageUrl) {
   }
 }
 
-// Sync back to seed copy in data/ when running locally and push to Vercel Blob
-function syncSeedCopy() {
+// Sync back to seed copy in data/, update seed.json, and push to Vercel Blob
+async function syncSeedCopy() {
   menuVersion = Date.now();
-  if (!isVercel && fs.existsSync(dbPath)) {
+  if (fs.existsSync(dbPath)) {
     try {
-      if (dbPath !== seedDbPath) {
-        fs.copyFileSync(dbPath, seedDbPath);
+      if (!isVercel) {
+        if (dbPath !== seedDbPath) {
+          fs.copyFileSync(dbPath, seedDbPath);
+        }
+        fs.copyFileSync(dbPath, path.join(__dirname, 'menu.sqlite3'));
+        if (altSeedDbPath) {
+          try { fs.copyFileSync(dbPath, altSeedDbPath); } catch (_) {}
+        }
       }
-      fs.copyFileSync(dbPath, path.join(__dirname, 'menu.sqlite3'));
-      if (altSeedDbPath) {
-        try { fs.copyFileSync(dbPath, altSeedDbPath); } catch (_) {}
+
+      // Keep seed.json & data/seed.json synchronized with exact real dishes/categories/settings
+      if (typeof dbAll === 'function') {
+        try {
+          const dishes = await dbAll('SELECT * FROM dishes ORDER BY rowid DESC');
+          const categories = await dbAll('SELECT * FROM categories ORDER BY displayOrder ASC');
+          const settingsRows = await dbAll('SELECT key, value FROM settings');
+          const settings = {};
+          for (const r of settingsRows) settings[r.key] = r.value;
+          const seedContent = JSON.stringify({ settings, categories, dishes }, null, 2);
+          fs.writeFileSync(path.join(__dirname, 'seed.json'), seedContent);
+          fs.writeFileSync(path.join(__dirname, 'data', 'seed.json'), seedContent);
+        } catch (_) {}
       }
     } catch (_) {}
   }
-  // Persistent background sync to Vercel Blob
-  syncDbToBlob().catch(() => {});
+  // Persistent background sync to Vercel Blob with allowOverwrite: true
+  await syncDbToBlob().catch(() => {});
 }
 
 // Initialize SQLite 3 Tables
@@ -278,7 +296,7 @@ async function initDatabase() {
         const blobList = await list({ token: BLOB_TOKEN, prefix: 'menu.sqlite3' });
         const targetBlob = blobList.blobs.find(b => b.pathname === 'menu.sqlite3');
         if (targetBlob && targetBlob.url) {
-          const response = await fetch(targetBlob.url);
+          const response = await fetch(targetBlob.url + '?t=' + Date.now(), { cache: 'no-store' });
           if (response.ok) {
             const buf = Buffer.from(await response.arrayBuffer());
             if (buf.length > 2000) {
@@ -451,7 +469,7 @@ app.post('/api/settings', async (req, res) => {
       await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, finalVal]);
     }
 
-    syncSeedCopy();
+    await syncSeedCopy();
     res.json({ success: true, message: 'Settings updated successfully in SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 settings update error:', err);
@@ -481,7 +499,7 @@ app.post('/api/categories', async (req, res) => {
       [catId, nameEn || '', nameAr || '', icon || 'utensils', Number(displayOrder) || 0]
     );
 
-    syncSeedCopy();
+    await syncSeedCopy();
     res.json({ success: true, id: catId });
   } catch (err) {
     console.error('SQLite 3 category save error:', err);
@@ -507,7 +525,7 @@ app.delete('/api/categories/:id', async (req, res) => {
     await dbRun('DELETE FROM dishes WHERE categoryId = ?', [catId]);
     await dbRun('DELETE FROM categories WHERE id = ?', [catId]);
 
-    syncSeedCopy();
+    await syncSeedCopy();
     res.json({ success: true, message: 'Category and its dishes deleted cleanly from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 category delete error:', err);
@@ -571,7 +589,7 @@ app.post('/api/dishes', async (req, res) => {
       now
     ]);
 
-    syncSeedCopy();
+    await syncSeedCopy();
     res.json({ success: true, id: dishId, image: finalImageUrl });
   } catch (err) {
     console.error('SQLite 3 add dish error:', err);
@@ -622,7 +640,7 @@ app.put('/api/dishes/:id', async (req, res) => {
         now,
         now
       ]);
-      syncSeedCopy();
+      await syncSeedCopy();
       return res.json({ success: true, message: 'Dish saved cleanly in SQLite 3', id: dishId, image: finalImageUrl });
     }
 
@@ -666,7 +684,7 @@ app.put('/api/dishes/:id', async (req, res) => {
       dishId
     ]);
 
-    syncSeedCopy();
+    await syncSeedCopy();
     res.json({ success: true, message: 'Dish updated cleanly in SQLite 3', id: dishId, image: finalImageUrl });
   } catch (err) {
     console.error('SQLite 3 update dish error:', err);
@@ -687,7 +705,7 @@ app.delete('/api/dishes/:id', async (req, res) => {
 
     await dbRun('DELETE FROM dishes WHERE id = ?', [dishId]);
 
-    syncSeedCopy();
+    await syncSeedCopy();
     res.json({ success: true, message: 'Dish deleted completely from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 delete dish error:', err);
@@ -706,7 +724,7 @@ app.post('/api/dishes/clear-all', async (req, res) => {
     }
 
     await dbRun('DELETE FROM dishes;');
-    syncSeedCopy();
+    await syncSeedCopy();
     res.json({ success: true, message: 'All dishes and their images cleared completely from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 clear-all error:', err);
@@ -779,7 +797,7 @@ app.post('/api/reset', async (req, res) => {
       ]);
     }
 
-    syncSeedCopy();
+    await syncSeedCopy();
     res.json({ success: true, message: 'Database reset to clean state with 0 dishes' });
   } catch (err) {
     console.error('SQLite 3 reset error:', err);
@@ -856,7 +874,7 @@ app.post('/api/restore', async (req, res) => {
       }
     }
 
-    syncSeedCopy();
+    await syncSeedCopy();
     res.json({ success: true, message: 'Data restored successfully to SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 restore error:', err);
