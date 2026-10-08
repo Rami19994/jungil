@@ -11,3 +11,4 @@ node_modules/
 *.sqlite3-journal
 
 .env*
+.vercel
