@@ -379,9 +379,9 @@
       };
 
       // Load Data directly from SQLite 3 Backend (Live & Real-time, No Cache, No LocalStorage Fallback)
-      const loadData = async () => {
+      const loadData = async (showLoading = true) => {
         try {
-          setIsLoading(true);
+          if (showLoading) setIsLoading(true);
           const t = Date.now();
           const fetchOpts = {
             cache: 'no-store',
@@ -443,12 +443,42 @@
         } catch (err) {
           console.error('Error reading directly from SQLite 3 database:', err);
         } finally {
-          setIsLoading(false);
+          if (showLoading) setIsLoading(false);
         }
       };
 
       useEffect(() => {
-        loadData();
+        loadData(true);
+
+        // Instant cross-tab broadcast synchronization (0ms latency)
+        const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('jungle_sync') : null;
+        if (syncChannel) {
+          syncChannel.onmessage = () => {
+            loadData(false);
+          };
+        }
+
+        // Live Real-Time Auto Sync across all visitor devices without page refresh (every 2.5s)
+        let lastVersion = null;
+        const interval = setInterval(async () => {
+          try {
+            const res = await fetch('/api/menu-version?t=' + Date.now(), { cache: 'no-store' });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.version && lastVersion && data.version !== lastVersion) {
+                lastVersion = data.version;
+                loadData(false);
+              } else if (data.version) {
+                lastVersion = data.version;
+              }
+            }
+          } catch (_) {}
+        }, 2500);
+
+        return () => {
+          if (syncChannel) syncChannel.close();
+          clearInterval(interval);
+        };
       }, []);
 
       // URL Route Handler for /admin and #admin -> redirects to dedicated admin page

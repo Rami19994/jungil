@@ -383,9 +383,31 @@
         }
       };
 
+      // Broadcast channel for instantaneous cross-tab sync with customer menu (0ms)
+      const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('jungle_sync') : null;
+
       useEffect(() => {
         if (isAuthenticated) {
           loadData();
+
+          // Background version check every 2.5s to keep admin in sync with server without refresh
+          let lastVer = null;
+          const interval = setInterval(async () => {
+            try {
+              const res = await fetch('/api/menu-version?t=' + Date.now(), { cache: 'no-store' });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.version && lastVer && data.version !== lastVer) {
+                  lastVer = data.version;
+                  loadData();
+                } else if (data.version) {
+                  lastVer = data.version;
+                }
+              }
+            } catch (_) {}
+          }, 2500);
+
+          return () => clearInterval(interval);
         }
       }, [isAuthenticated]);
 
@@ -517,6 +539,7 @@
           if (!res.ok) throw new Error('Failed to save settings');
           setSettings({ ...settingsForm });
           showToast(isAr ? 'تم حفظ وتحديث بيانات المطعم فورياً في قاعدة البيانات' : 'Restaurant info saved');
+          if (syncChannel) syncChannel.postMessage({ type: 'SETTINGS_UPDATED', time: Date.now() });
         } catch (err) {
           showToast(isAr ? 'حدث خطأ أثناء الحفظ' : 'Error saving settings', 'error');
         }
@@ -538,6 +561,7 @@
           setSettingsForm(prev => ({ ...prev, logoUrl: '' }));
           if (logoFileInputRef.current) logoFileInputRef.current.value = '';
           showToast(isAr ? 'تم حذف الشعار نهائياً من قاعدة البيانات' : 'Logo deleted successfully');
+          if (syncChannel) syncChannel.postMessage({ type: 'SETTINGS_UPDATED', time: Date.now() });
         } catch (err) {
           showToast(isAr ? 'حدث خطأ أثناء حذف الشعار' : 'Error deleting logo', 'error');
         }
@@ -555,6 +579,7 @@
           });
           if (!res.ok) throw new Error('Failed to update background');
           showToast(message);
+          if (syncChannel) syncChannel.postMessage({ type: 'SETTINGS_UPDATED', time: Date.now() });
         } catch (err) {
           showToast(isAr ? 'حدث خطأ أثناء حفظ الخلفية' : 'Error saving background', 'error');
         }
@@ -661,6 +686,7 @@
 
           setIsDishModalOpen(false);
           await loadData();
+          if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
         } catch (err) {
           console.error('Save dish error:', err);
           showToast(err.message || (isAr ? 'حدث خطأ أثناء الحفظ' : 'Error saving dish'), 'error');
@@ -679,6 +705,7 @@
             setDishes(prev => prev.filter(d => d.id !== dishId));
             showToast(isAr ? 'تم حذف الوجبة نهائياً من قاعدة البيانات SQLite 3' : 'Dish deleted permanently from database');
             await loadData();
+            if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
           } catch (err) {
             console.error('Delete error:', err);
             showToast(err.message || (isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting dish'), 'error');
@@ -703,6 +730,7 @@
             setDishes([]);
             showToast(isAr ? 'تم حذف جميع الأطباق بنجاح من قاعدة البيانات SQLite 3' : 'All dishes cleared from SQLite 3');
             await loadData();
+            if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
           } catch (err) {
             showToast(err.message || (isAr ? 'حدث خطأ في الاتصال' : 'Connection error'), 'error');
             await loadData();
@@ -724,6 +752,7 @@
           });
           setDishes(prev => prev.map(d => d.id === dishId ? { ...d, inStock: nextStock } : d));
           showToast(`${isAr ? targetDish.nameAr : targetDish.nameEn}: ${nextStock ? (isAr ? 'متوفر' : 'In Stock') : (isAr ? 'نفذت الكمية' : 'Sold Out')}`);
+          if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
         } catch (err) { }
       };
 
@@ -749,6 +778,7 @@
           setNewCategoryForm({ nameEn: '', nameAr: '', icon: 'utensils' });
           setIsCategoryModalOpen(false);
           showToast(isAr ? 'تمت إضافة التصنيف بنجاح' : 'Category added');
+          if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
         } catch (err) {
           showToast(isAr ? 'حدث خطأ أثناء الإضافة' : 'Error adding category', 'error');
         }
@@ -766,6 +796,7 @@
             setCategories(prev => prev.filter(c => c.id !== catId));
             setDishes(prev => prev.filter(d => d.categoryId !== catId));
             showToast(isAr ? 'تم حذف التصنيف بنجاح' : 'Category deleted');
+            if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
           } catch (err) {
             showToast(isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting category', 'error');
           }
@@ -818,6 +849,7 @@
               if (Array.isArray(backup.categories)) setCategories(backup.categories);
               if (Array.isArray(backup.dishes)) setDishes(backup.dishes);
               showToast(isAr ? 'تمت استعادة البيانات بنجاح' : 'Backup restored');
+              if (syncChannel) syncChannel.postMessage({ type: 'ALL_UPDATED', time: Date.now() });
             }
           } catch (err) {
             alert(isAr ? 'خطأ في قراءة ملف النسخة الاحتياطية' : 'Error reading backup file');

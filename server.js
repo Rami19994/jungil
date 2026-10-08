@@ -46,16 +46,54 @@ if (isVercel) {
   app.use('/uploads', express.static(tmpUploadsDir));
 }
 
-// SQLite 3 Database File Paths (.sqlite3 and legacy .sqlite)
-// SQLite 3 Database File Paths (pure .sqlite3 only)
-const dbFileName = 'restaurant.sqlite3';
+// SQLite 3 Database File Paths (pure menu.sqlite3 matching requested architecture)
+const dbFileName = 'menu.sqlite3';
 const dbPath = path.join(dataDir, dbFileName);
 const seedDbPath = path.join(__dirname, 'data', dbFileName);
+const altSeedDbPath = path.join(__dirname, 'data', 'restaurant.sqlite3');
 
 // On Vercel, copy pre-seeded database if /tmp copy doesn't exist yet
 if (isVercel && !fs.existsSync(dbPath)) {
   if (fs.existsSync(seedDbPath)) {
     try { fs.copyFileSync(seedDbPath, dbPath); } catch (_) {}
+  } else if (fs.existsSync(altSeedDbPath)) {
+    try { fs.copyFileSync(altSeedDbPath, dbPath); } catch (_) {}
+  }
+}
+
+// Global real-time version timestamp for live sync across browser tabs and devices without refresh
+let menuVersion = Date.now();
+
+// Vercel Blob persistent cloud storage configuration (safely load token from environment or local env)
+if (!process.env.BLOB_READ_WRITE_TOKEN && fs.existsSync(path.join(__dirname, '.env.local'))) {
+  try {
+    const envContent = fs.readFileSync(path.join(__dirname, '.env.local'), 'utf8');
+    const match = envContent.match(/BLOB_READ_WRITE_TOKEN\s*=\s*["']?([^"'\r\n]+)["']?/);
+    if (match) process.env.BLOB_READ_WRITE_TOKEN = match[1];
+  } catch (_) {}
+}
+const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
+let isSyncingToBlob = false;
+
+async function syncDbToBlob() {
+  menuVersion = Date.now();
+  if (!BLOB_TOKEN) return;
+  if (isSyncingToBlob) return;
+  isSyncingToBlob = true;
+  try {
+    const { put } = require('@vercel/blob');
+    if (fs.existsSync(dbPath)) {
+      const buffer = fs.readFileSync(dbPath);
+      await put('menu.sqlite3', buffer, {
+        access: 'public',
+        addRandomSuffix: false,
+        token: BLOB_TOKEN,
+      });
+    }
+  } catch (err) {
+    console.warn('Vercel Blob sync notice:', err.message);
+  } finally {
+    isSyncingToBlob = false;
   }
 }
 
@@ -212,18 +250,48 @@ function deleteLocalImageFile(imageUrl) {
   }
 }
 
-// Sync back to seed copy in data/ when running locally
+// Sync back to seed copy in data/ when running locally and push to Vercel Blob
 function syncSeedCopy() {
-  if (!isVercel && dbPath !== seedDbPath && fs.existsSync(dbPath)) {
+  menuVersion = Date.now();
+  if (!isVercel && fs.existsSync(dbPath)) {
     try {
-      fs.copyFileSync(dbPath, seedDbPath);
+      if (dbPath !== seedDbPath) {
+        fs.copyFileSync(dbPath, seedDbPath);
+      }
+      fs.copyFileSync(dbPath, path.join(__dirname, 'menu.sqlite3'));
+      if (altSeedDbPath) {
+        try { fs.copyFileSync(dbPath, altSeedDbPath); } catch (_) {}
+      }
     } catch (_) {}
   }
+  // Persistent background sync to Vercel Blob
+  syncDbToBlob().catch(() => {});
 }
 
 // Initialize SQLite 3 Tables
 async function initDatabase() {
   try {
+    // If running on Vercel, pull latest persistent database from Vercel Blob if available
+    if (isVercel && BLOB_TOKEN) {
+      try {
+        const { list } = require('@vercel/blob');
+        const blobList = await list({ token: BLOB_TOKEN, prefix: 'menu.sqlite3' });
+        const targetBlob = blobList.blobs.find(b => b.pathname === 'menu.sqlite3');
+        if (targetBlob && targetBlob.url) {
+          const response = await fetch(targetBlob.url);
+          if (response.ok) {
+            const buf = Buffer.from(await response.arrayBuffer());
+            if (buf.length > 2000) {
+              fs.writeFileSync(dbPath, buf);
+              console.log(`☁️ Synced latest menu.sqlite3 from Vercel Blob (${buf.length} bytes)`);
+            }
+          }
+        }
+      } catch (blobErr) {
+        console.warn('Vercel Blob restore notice:', blobErr.message);
+      }
+    }
+
     await dbExec(`
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -306,6 +374,11 @@ async function initDatabase() {
 initDatabase();
 
 // ======================== REST API ROUTES (100% SQLite 3) ======================== //
+
+// 0.0 GET Live Menu Version for instant cross-device updates without page reload
+app.get('/api/menu-version', (req, res) => {
+  res.json({ version: menuVersion, timestamp: new Date().toISOString() });
+});
 
 // 0. GET Full Menu in 1 Call directly from SQLite 3
 app.get('/api/menu', async (req, res) => {

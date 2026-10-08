@@ -12,6 +12,7 @@
     "build": "node -e \"console.log('Build complete')\""
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.1",
     "cors": "^2.8.5",
     "express": "^5.0.1",
     "sqlite3": "^6.0.1"
