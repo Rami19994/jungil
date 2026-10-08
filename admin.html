@@ -335,12 +335,23 @@
       const dishImageFileInputRef = useRef(null);
       const backupFileInputRef = useRef(null);
 
-      // Load Data from SQLite Backend (Fast & Real-time)
+      // Load Data from SQLite 3 Backend (Fast & Real-time directly from database)
       const loadData = async () => {
         try {
           setIsLoading(true);
           const t = Date.now();
-          const fetchOpts = { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } };
+          const fetchOpts = {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+            },
+          };
+
+          // Wipe any stale browser cache
+          try {
+            localStorage.removeItem('jungle_cache');
+          } catch (_) {}
 
           const [settingsRes, catsRes, dishesRes] = await Promise.all([
             fetch(`/api/settings?t=${t}`, fetchOpts).catch(() => null),
@@ -366,7 +377,7 @@
             if (Array.isArray(data)) setDishes(data);
           }
         } catch (err) {
-          console.error('Error fetching admin data:', err);
+          console.error('Error fetching admin data from SQLite 3:', err);
         } finally {
           setIsLoading(false);
         }
@@ -404,8 +415,8 @@
         showToast(isAr ? 'تم تسجيل الخروج بنجاح' : 'Logged out');
       };
 
-      // Image Processing & Optimization - Stored directly in SQLite database
-      const handleFileUpload = (file, callback, setPreview) => {
+      // Image Processing & Optimization - Uploads to /uploads/ and links to SQLite 3
+      const handleFileUpload = async (file, callback, setPreview) => {
         if (!file) return;
 
         setIsImageProcessing(true);
@@ -416,74 +427,81 @@
           showToast(isAr ? 'تعذر قراءة ملف الصورة' : 'Could not read image file', 'error');
         };
 
-        reader.onload = (ev) => {
+        reader.onload = async (ev) => {
           const rawData = ev.target.result;
-          if (file.type === 'image/svg+xml') {
-            if (setPreview) setPreview(rawData);
-            callback(rawData);
-            setIsImageProcessing(false);
-            showToast(isAr ? 'تم تجهيز الصورة بنجاح' : 'Image prepared successfully');
-            return;
+          let compressed = rawData;
+
+          if (file.type !== 'image/svg+xml') {
+            try {
+              compressed = await new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                  try {
+                    const maxDim = 1200;
+                    let w = img.width || 800;
+                    let h = img.height || 600;
+                    if (w > maxDim || h > maxDim) {
+                      if (w > h) {
+                        h = Math.round((h * maxDim) / w);
+                        w = maxDim;
+                      } else {
+                        w = Math.round((w * maxDim) / h);
+                        h = maxDim;
+                      }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(img, 0, 0, w, h);
+
+                    let result = canvas.toDataURL('image/webp', 0.85);
+                    if (!result || result.length < 100 || result === 'data:,') {
+                      result = canvas.toDataURL('image/jpeg', 0.85);
+                    }
+                    resolve(result || rawData);
+                  } catch (_) {
+                    resolve(rawData);
+                  }
+                };
+                img.onerror = () => resolve(rawData);
+                img.src = rawData;
+              });
+            } catch (_) {
+              compressed = rawData;
+            }
           }
 
-          const img = new Image();
-          img.onerror = () => {
-            if (setPreview) setPreview(rawData);
-            callback(rawData);
-            setIsImageProcessing(false);
-            showToast(isAr ? 'تم حفظ الصورة بنجاح' : 'Image prepared successfully');
-          };
+          if (setPreview) setPreview(compressed);
 
-          img.onload = () => {
-            try {
-              const maxDim = 1200;
-              let w = img.width || 800;
-              let h = img.height || 600;
-              if (w > maxDim || h > maxDim) {
-                if (w > h) {
-                  h = Math.round((h * maxDim) / w);
-                  w = maxDim;
-                } else {
-                  w = Math.round((w * maxDim) / h);
-                  h = maxDim;
-                }
+          // Upload image to server immediately to store clean image file on disk
+          try {
+            const uploadRes = await fetch('/api/upload', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ base64Data: compressed, filename: file.name }),
+            });
+            if (uploadRes.ok) {
+              const uploadData = await uploadRes.json();
+              if (uploadData.url) {
+                callback(uploadData.url);
+                if (setPreview) setPreview(uploadData.url);
+                setIsImageProcessing(false);
+                showToast(isAr ? 'تم رفع وحفظ صورة الوجبة بنجاح' : 'Image saved successfully');
+                return;
               }
-              const canvas = document.createElement('canvas');
-              canvas.width = w;
-              canvas.height = h;
-              const ctx = canvas.getContext('2d');
-              ctx.imageSmoothingEnabled = true;
-              ctx.imageSmoothingQuality = 'high';
-              ctx.drawImage(img, 0, 0, w, h);
-
-              let compressed = canvas.toDataURL('image/webp', 0.84);
-              if (!compressed || compressed.length < 100 || compressed === 'data:,') {
-                compressed = canvas.toDataURL('image/jpeg', 0.84);
-              }
-              if (!compressed || compressed.length < 100) {
-                compressed = rawData;
-              }
-
-              if (setPreview) setPreview(compressed);
-              callback(compressed);
-              setIsImageProcessing(false);
-              showToast(isAr ? 'تم تجهيز صورة الوجبة بنجاح لحفظها في قاعدة البيانات' : 'Image ready for database');
-
-              // Also attempt optional background sync to /api/upload if running on writable server
-              fetch('/api/upload', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ base64Data: compressed, filename: file.name }),
-              }).catch(() => {});
-            } catch (_) {
-              if (setPreview) setPreview(rawData);
-              callback(rawData);
-              setIsImageProcessing(false);
-              showToast(isAr ? 'تم حفظ الصورة بنجاح' : 'Image prepared');
             }
-          };
-          img.src = rawData;
+          } catch (uploadErr) {
+            console.warn('Direct upload warning, falling back to embedded format:', uploadErr);
+          }
+
+          callback(compressed);
+          setIsImageProcessing(false);
+          showToast(isAr ? 'تم تجهيز الصورة بنجاح' : 'Image prepared successfully');
         };
+
         reader.readAsDataURL(file);
       };
 
@@ -491,13 +509,14 @@
       const handleSaveSettings = async (e) => {
         e.preventDefault();
         try {
-          await fetch('/api/settings', {
+          const res = await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(settingsForm),
           });
+          if (!res.ok) throw new Error('Failed to save settings');
           setSettings({ ...settingsForm });
-          showToast(isAr ? 'تم حفظ وتحديث بيانات المطعم فورياً' : 'Restaurant info saved');
+          showToast(isAr ? 'تم حفظ وتحديث بيانات المطعم فورياً في قاعدة البيانات' : 'Restaurant info saved');
         } catch (err) {
           showToast(isAr ? 'حدث خطأ أثناء الحفظ' : 'Error saving settings', 'error');
         }
@@ -509,15 +528,16 @@
           return;
         }
         try {
-          await fetch('/api/settings', {
+          const res = await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ logoUrl: '' }),
           });
+          if (!res.ok) throw new Error('Failed to delete logo');
           setSettings(prev => ({ ...prev, logoUrl: '' }));
           setSettingsForm(prev => ({ ...prev, logoUrl: '' }));
           if (logoFileInputRef.current) logoFileInputRef.current.value = '';
-          showToast(isAr ? 'تم حذف الشعار نهائياً' : 'Logo deleted successfully');
+          showToast(isAr ? 'تم حذف الشعار نهائياً من قاعدة البيانات' : 'Logo deleted successfully');
         } catch (err) {
           showToast(isAr ? 'حدث خطأ أثناء حذف الشعار' : 'Error deleting logo', 'error');
         }
@@ -528,11 +548,12 @@
         setSettings(prev => ({ ...prev, heroBgUrl: url }));
         setSettingsForm(prev => ({ ...prev, heroBgUrl: url }));
         try {
-          await fetch('/api/settings', {
+          const res = await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ heroBgUrl: url }),
           });
+          if (!res.ok) throw new Error('Failed to update background');
           showToast(message);
         } catch (err) {
           showToast(isAr ? 'حدث خطأ أثناء حفظ الخلفية' : 'Error saving background', 'error');
@@ -542,7 +563,7 @@
 
       const handleDeleteHeroBg = () => {
         if (!window.confirm(isAr ? 'هل تريد حذف صورة الخلفية؟' : 'Delete the background image?')) return;
-        saveHeroBg('', isAr ? 'تم حذف صورة الخلفية' : 'Background removed');
+        saveHeroBg('', isAr ? 'تم حذف صورة الخلفية من قاعدة البيانات' : 'Background removed');
       };
 
       // Dishes: Add/Edit Modal Open
@@ -590,7 +611,7 @@
         setIsDishModalOpen(true);
       };
 
-      // Save Dish directly into SQLite Database
+      // Save Dish directly into SQLite 3 Database
       const handleSaveDish = async (e) => {
         e.preventDefault();
         if (!dishForm.nameEn.trim() || !dishForm.nameAr.trim()) {
@@ -598,7 +619,7 @@
           return;
         }
 
-        const finalImage = dishForm.image || dishImagePreview || '';
+        const finalImage = dishForm.image !== undefined ? dishForm.image : (dishImagePreview || '');
         const dishData = {
           ...dishForm,
           image: finalImage,
@@ -612,10 +633,11 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(dishData),
             });
-            if (res.ok) {
-              setDishes(prev => prev.map(d => d.id === editingDish.id ? { ...dishData, id: editingDish.id } : d));
-              showToast(isAr ? 'تم تحديث الوجبة والصورة بنجاح في قاعدة البيانات' : 'Dish updated in database');
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || (isAr ? 'فشل تحديث الوجبة في قاعدة البيانات' : 'Failed to update dish'));
             }
+            showToast(isAr ? 'تم تحديث الوجبة والصورة بنجاح في قاعدة البيانات SQLite 3' : 'Dish updated in SQLite 3 database');
           } else {
             const newId = `dish-${Date.now()}`;
             const res = await fetch('/api/dishes', {
@@ -623,35 +645,42 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ ...dishData, id: newId }),
             });
-            if (res.ok) {
-              setDishes(prev => [{ ...dishData, id: newId }, ...prev]);
-              showToast(isAr ? 'تمت إضافة الوجبة وحفظ الصورة في قاعدة البيانات' : 'New dish added to database');
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || (isAr ? 'فشل إضافة الوجبة في قاعدة البيانات' : 'Failed to add dish'));
             }
+            showToast(isAr ? 'تمت إضافة الوجبة وحفظها في قاعدة البيانات SQLite 3' : 'New dish added to SQLite 3 database');
           }
-          // Immediate sync from database
-          setTimeout(() => loadData(), 150);
-        } catch (err) {
-          showToast(isAr ? 'حدث خطأ أثناء الحفظ' : 'Error saving dish', 'error');
-        }
 
-        setIsDishModalOpen(false);
+          setIsDishModalOpen(false);
+          await loadData();
+        } catch (err) {
+          console.error('Save dish error:', err);
+          showToast(err.message || (isAr ? 'حدث خطأ أثناء الحفظ' : 'Error saving dish'), 'error');
+        }
       };
 
-      // Delete Dish completely from SQLite Database
+      // Delete Dish completely from SQLite 3 Database
       const handleDeleteDish = async (dishId) => {
         if (window.confirm(isAr ? 'هل أنت متأكد من حذف هذه الوجبة نهائياً من قاعدة البيانات؟' : 'Permanently delete this dish from database?')) {
           try {
-            await fetch(`/api/dishes/${dishId}`, { method: 'DELETE' });
+            const res = await fetch(`/api/dishes/${dishId}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || (isAr ? 'فشل حذف الوجبة من قاعدة البيانات' : 'Failed to delete dish'));
+            }
             setDishes(prev => prev.filter(d => d.id !== dishId));
-            showToast(isAr ? 'تم حذف الوجبة نهائياً من قاعدة البيانات' : 'Dish deleted permanently from database');
-            setTimeout(() => loadData(), 150);
+            showToast(isAr ? 'تم حذف الوجبة نهائياً من قاعدة البيانات SQLite 3' : 'Dish deleted permanently from database');
+            await loadData();
           } catch (err) {
-            showToast(isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting dish', 'error');
+            console.error('Delete error:', err);
+            showToast(err.message || (isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting dish'), 'error');
+            await loadData();
           }
         }
       };
 
-      // Clear All Dishes to start completely fresh with real data
+      // Clear All Dishes to start completely fresh with real data in SQLite 3
       const handleClearAllDishes = async () => {
         if (dishes.length === 0) {
           alert(isAr ? 'لا توجد أي أطباق حالياً لحذفها' : 'No dishes to delete');
@@ -660,14 +689,16 @@
         if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف جميع الأطباق الحالية؟ ستصبح القائمة فارغة تماماً لتتمكن من إدخال وجباتك الحقيقية.' : 'Are you sure you want to delete ALL current dishes to start clean with real data?')) {
           try {
             const res = await fetch('/api/dishes/clear-all', { method: 'POST' });
-            if (res.ok) {
-              setDishes([]);
-              showToast(isAr ? 'تم حذف جميع الأطباق بنجاح! يمكنك الآن إضافة بياناتك الحقيقية' : 'All dishes cleared successfully');
-            } else {
-              showToast(isAr ? 'حدث خطأ أثناء مسح الأطباق' : 'Error clearing dishes', 'error');
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || 'Failed to clear dishes');
             }
+            setDishes([]);
+            showToast(isAr ? 'تم حذف جميع الأطباق بنجاح من قاعدة البيانات SQLite 3' : 'All dishes cleared from SQLite 3');
+            await loadData();
           } catch (err) {
-            showToast(isAr ? 'حدث خطأ في الاتصال' : 'Connection error', 'error');
+            showToast(err.message || (isAr ? 'حدث خطأ في الاتصال' : 'Connection error'), 'error');
+            await loadData();
           }
         }
       };

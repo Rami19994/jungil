@@ -378,36 +378,46 @@
         setTimeout(() => setToast(null), 3200);
       };
 
-      // Load Data from Backend (Fast, real-time, no-cache, with static fallback)
+      // Load Data directly from SQLite 3 Backend (Live & Real-time, No Cache, No LocalStorage Fallback)
       const loadData = async () => {
         try {
           setIsLoading(true);
           const t = Date.now();
-          const fetchOpts = { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } };
+          const fetchOpts = {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+            },
+          };
 
-          // 1. Try unified /api/menu first (fastest)
+          // Completely remove any old stale cache from localStorage so deleted dishes never return
+          try {
+            localStorage.removeItem('jungle_cache');
+          } catch (_) {}
+
+          // 1. Fetch live unified menu directly from SQLite 3
           let loaded = false;
           try {
             const menuRes = await fetch(`/api/menu?t=${t}`, fetchOpts);
             if (menuRes.ok) {
               const menuData = await menuRes.json();
-              if (menuData && menuData.settings) {
-                setSettings(menuData.settings);
-                if (Array.isArray(menuData.categories)) setCategories(menuData.categories);
-                if (Array.isArray(menuData.dishes)) setDishes(menuData.dishes);
+              if (menuData) {
+                if (menuData.settings && Object.keys(menuData.settings).length > 0) {
+                  setSettings(menuData.settings);
+                }
+                if (Array.isArray(menuData.categories)) {
+                  setCategories(menuData.categories);
+                }
+                if (Array.isArray(menuData.dishes)) {
+                  setDishes(menuData.dishes);
+                }
                 loaded = true;
-                try {
-                  localStorage.setItem('jungle_cache', JSON.stringify({
-                    settings: menuData.settings,
-                    categories: menuData.categories,
-                    dishes: menuData.dishes,
-                  }));
-                } catch (_) {}
               }
             }
           } catch (_) {}
 
-          // 2. If unified /api/menu wasn't available, try individual endpoints
+          // 2. Direct individual endpoints from SQLite 3 if unified was unavailable
           if (!loaded) {
             const [settingsRes, catsRes, dishesRes] = await Promise.all([
               fetch(`/api/settings?t=${t}`, fetchOpts).catch(() => null),
@@ -415,57 +425,23 @@
               fetch(`/api/dishes?t=${t}`, fetchOpts).catch(() => null),
             ]);
 
-            let loadedSettings = null;
-            let loadedCats = null;
-            let loadedDishes = null;
-
             if (settingsRes && settingsRes.ok) {
               const data = await settingsRes.json();
-              if (Object.keys(data).length > 0) {
-                loadedSettings = data;
-                setSettings(data);
-                loaded = true;
-              }
+              if (data && Object.keys(data).length > 0) setSettings(data);
             }
 
             if (catsRes && catsRes.ok) {
               const data = await catsRes.json();
-              if (Array.isArray(data)) {
-                loadedCats = data;
-                setCategories(data);
-                loaded = true;
-              }
+              if (Array.isArray(data)) setCategories(data);
             }
 
             if (dishesRes && dishesRes.ok) {
               const data = await dishesRes.json();
-              if (Array.isArray(data)) {
-                loadedDishes = data;
-                setDishes(data);
-                loaded = true;
-              }
+              if (Array.isArray(data)) setDishes(data);
             }
-
-            if (loaded) {
-              try {
-                localStorage.setItem('jungle_cache', JSON.stringify({
-                  settings: loadedSettings || settings,
-                  categories: loadedCats || categories,
-                  dishes: loadedDishes !== null ? loadedDishes : dishes,
-                }));
-              } catch (_) {}
-            }
-          }
-
-          // 3. Fallback to localStorage cache only if completely offline
-          if (!loaded) {
-            const cached = JSON.parse(localStorage.getItem('jungle_cache') || '{}');
-            if (cached.settings) setSettings(cached.settings);
-            if (cached.categories) setCategories(cached.categories);
-            if (Array.isArray(cached.dishes)) setDishes(cached.dishes);
           }
         } catch (err) {
-          console.warn('Error loading menu data:', err);
+          console.error('Error reading directly from SQLite 3 database:', err);
         } finally {
           setIsLoading(false);
         }

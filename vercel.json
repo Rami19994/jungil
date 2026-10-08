@@ -11,6 +11,10 @@
       "destination": "/api/index.js"
     },
     {
+      "source": "/uploads/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
       "source": "/admin",
       "destination": "/admin.html"
     }

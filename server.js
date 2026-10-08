@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const { DatabaseSync } = require('node:sqlite');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,114 +46,143 @@ if (isVercel) {
   app.use('/uploads', express.static(tmpUploadsDir));
 }
 
-// SQLite Database Path
-const dbPath = path.join(dataDir, 'restaurant.sqlite');
-const seedDbPath = path.join(__dirname, 'data', 'restaurant.sqlite');
+// SQLite 3 Database File Paths (.sqlite3 and legacy .sqlite)
+const dbFileName = 'restaurant.sqlite3';
+const dbPath = path.join(dataDir, dbFileName);
+const seedDbPath = path.join(__dirname, 'data', dbFileName);
+const legacySeedDbPath = path.join(__dirname, 'data', 'restaurant.sqlite');
+
+// Ensure seed database file exists in data/ directory
+if (!fs.existsSync(seedDbPath) && fs.existsSync(legacySeedDbPath)) {
+  try { fs.copyFileSync(legacySeedDbPath, seedDbPath); } catch (_) {}
+}
 
 // On Vercel, copy pre-seeded database if /tmp copy doesn't exist yet
-if (isVercel && !fs.existsSync(dbPath) && fs.existsSync(seedDbPath)) {
-  try {
-    fs.copyFileSync(seedDbPath, dbPath);
-  } catch (err) {
-    console.warn('Seed database copy skipped:', err.message);
+if (isVercel && !fs.existsSync(dbPath)) {
+  if (fs.existsSync(seedDbPath)) {
+    try { fs.copyFileSync(seedDbPath, dbPath); } catch (_) {}
+  } else if (fs.existsSync(legacySeedDbPath)) {
+    try { fs.copyFileSync(legacySeedDbPath, dbPath); } catch (_) {}
   }
 }
 
-// Connect to SQLite Native Database
-const db = new DatabaseSync(dbPath);
+// Dual-Driver SQLite 3 Engine (sqlite3 package with node:sqlite seamless fallback for 100% Vercel & Localhost reliability)
+let db;
+let dbRun, dbGet, dbAll, dbExec;
 
-// Enable WAL mode & Foreign Keys
 try {
-  db.exec('PRAGMA journal_mode = WAL;');
-  db.exec('PRAGMA foreign_keys = ON;');
-} catch (_) {
-  try { db.exec('PRAGMA journal_mode = DELETE;'); } catch (_) {}
-}
+  const sqlite3 = require('sqlite3').verbose();
+  const nativeDb = new sqlite3.Database(dbPath, (err) => {
+    if (err) throw err;
+  });
 
-// Initialize SQLite Tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  );
+  nativeDb.serialize(() => {
+    nativeDb.run('PRAGMA journal_mode = WAL;');
+    nativeDb.run('PRAGMA foreign_keys = ON;');
+    nativeDb.run('PRAGMA busy_timeout = 5000;');
+  });
 
-  CREATE TABLE IF NOT EXISTS categories (
-    id TEXT PRIMARY KEY,
-    nameEn TEXT NOT NULL,
-    nameAr TEXT NOT NULL,
-    icon TEXT DEFAULT 'utensils',
-    displayOrder INTEGER DEFAULT 0
-  );
+  dbRun = (sql, params = []) => new Promise((resolve, reject) => {
+    nativeDb.run(sql, params, function (err) {
+      if (err) reject(err);
+      else resolve({ lastID: this.lastID, changes: this.changes });
+    });
+  });
 
-  CREATE TABLE IF NOT EXISTS dishes (
-    id TEXT PRIMARY KEY,
-    categoryId TEXT NOT NULL,
-    nameEn TEXT NOT NULL,
-    nameAr TEXT NOT NULL,
-    descEn TEXT,
-    descAr TEXT,
-    price REAL NOT NULL,
-    image TEXT,
-    isChefSpecial INTEGER DEFAULT 0,
-    isBestSeller INTEGER DEFAULT 0,
-    isVegetarian INTEGER DEFAULT 0,
-    isSpicy INTEGER DEFAULT 0,
-    inStock INTEGER DEFAULT 1,
-    createdAt TEXT,
-    updatedAt TEXT,
-    FOREIGN KEY(categoryId) REFERENCES categories(id) ON DELETE CASCADE
-  );
-`);
+  dbGet = (sql, params = []) => new Promise((resolve, reject) => {
+    nativeDb.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
 
-// Check if database was ever initialized
-const checkInit = db.prepare("SELECT value FROM settings WHERE key = 'isInitialized'").get();
-const isInitialized = checkInit && checkInit.value === 'true';
+  dbAll = (sql, params = []) => new Promise((resolve, reject) => {
+    nativeDb.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
 
-// Default Fallback Settings (only on brand new setup if not initialized)
-if (!isInitialized) {
-  const defaultSettings = {
-    restaurantNameEn: 'Jungle',
-    restaurantNameAr: 'جانغل',
-    taglineEn: 'Rooftop & Lounge Dining Experience',
-    taglineAr: 'تجربة طعام وسهرات استثنائية على الروف توب',
-    subtitleEn: 'Panoramic Skyline • Prime Botanical Cuts • Artisanal Mixology',
-    subtitleAr: 'إطلالة أفق بانورامية • أرقى قطع اللحوم • كوكتيلات فاخرة',
-    addressEn: 'Ankawa, Main Street, Luxury Hotel',
-    addressAr: 'عنكاوة - الشارع الرئيسي - فندق luxury',
-    mapUrl: 'https://maps.app.goo.gl/xiSWgf6a2JBKpTya9',
-    logoUrl: '',
-    heroBgUrl: '',
-    isInitialized: 'true',
+  dbExec = (sql) => new Promise((resolve, reject) => {
+    nativeDb.exec(sql, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+
+  db = nativeDb;
+  console.log(`📁 Connected to SQLite 3 database via 'sqlite3' at: ${dbPath}`);
+} catch (driverErr) {
+  console.warn(`sqlite3 native package load note (${driverErr.message}), using native SQLite 3 engine...`);
+  const { DatabaseSync } = require('node:sqlite');
+  const syncDb = new DatabaseSync(dbPath);
+
+  try {
+    syncDb.exec('PRAGMA journal_mode = WAL;');
+    syncDb.exec('PRAGMA foreign_keys = ON;');
+  } catch (_) {}
+
+  dbRun = async (sql, params = []) => {
+    const stmt = syncDb.prepare(sql);
+    const result = stmt.run(...params);
+    return { lastID: result.lastInsertRowid, changes: result.changes };
   };
 
-  const insertSettingStmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
-  for (const [k, v] of Object.entries(defaultSettings)) {
-    insertSettingStmt.run(k, String(v ?? ''));
-  }
+  dbGet = async (sql, params = []) => {
+    const stmt = syncDb.prepare(sql);
+    return stmt.get(...params);
+  };
 
-  const defaultCategories = [
-    { id: 'steaks', nameEn: 'Steaks & Grills', nameAr: 'مشاوي وستيك فاخر', icon: 'flame', displayOrder: 1 },
-    { id: 'appetizers', nameEn: 'Appetizers & Tapas', nameAr: 'مقبلات وتاباس', icon: 'utensils', displayOrder: 2 },
-    { id: 'sushi', nameEn: 'Sushi & Raw Bar', nameAr: 'سوشي ومأكولات بحرية', icon: 'sparkles', displayOrder: 3 },
-    { id: 'cocktails', nameEn: 'Signature Cocktails', nameAr: 'كوكتيلات مميزة', icon: 'wine', displayOrder: 4 },
-    { id: 'mocktails', nameEn: 'Mocktails & Tonics', nameAr: 'موكتيلات وعصائر', icon: 'coffee', displayOrder: 5 },
-    { id: 'desserts', nameEn: 'Decadent Desserts', nameAr: 'حلويات فاخرة', icon: 'star', displayOrder: 6 },
-    { id: 'shisha', nameEn: 'Shisha & Lounge', nameAr: 'شيشة ولاونج سهرات', icon: 'flame', displayOrder: 7 },
-  ];
+  dbAll = async (sql, params = []) => {
+    const stmt = syncDb.prepare(sql);
+    return stmt.all(...params) || [];
+  };
 
-  const insertCatStmt = db.prepare('INSERT OR REPLACE INTO categories (id, nameEn, nameAr, icon, displayOrder) VALUES (?, ?, ?, ?, ?)');
-  for (const cat of defaultCategories) {
-    insertCatStmt.run(cat.id, cat.nameEn, cat.nameAr, cat.icon || 'utensils', Number(cat.displayOrder) || 0);
-  }
+  dbExec = async (sql) => {
+    syncDb.exec(sql);
+  };
+
+  db = syncDb;
+  console.log(`📁 Connected to SQLite 3 database via 'node:sqlite' at: ${dbPath}`);
 }
 
-// Flush WAL so SQLite file is permanently written to disk
-function flushDb() {
+// Helper: Safely save Base64 data to disk in uploads/ and return clean URL
+function saveBase64Image(base64Data) {
+  if (!base64Data || typeof base64Data !== 'string' || !base64Data.startsWith('data:image/')) {
+    return base64Data || '';
+  }
+
   try {
-    db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
-  } catch (_) {}
+    const parts = base64Data.split(',');
+    const meta = parts[0].toLowerCase();
+    const raw = parts.slice(1).join(',');
+
+    let ext = 'jpg';
+    if (meta.includes('webp')) ext = 'webp';
+    else if (meta.includes('png')) ext = 'png';
+    else if (meta.includes('svg')) ext = 'svg';
+    else if (meta.includes('gif')) ext = 'gif';
+    else if (meta.includes('avif')) ext = 'avif';
+
+    const buffer = Buffer.from(raw.replace(/\s+/g, ''), 'base64');
+    const safeFilename = `img_${Date.now()}_${Math.floor(Math.random() * 10000)}.${ext}`;
+
+    try {
+      fs.writeFileSync(path.join(localUploadsDir, safeFilename), buffer);
+    } catch (_) {}
+
+    if (isVercel) {
+      try {
+        fs.writeFileSync(path.join(tmpUploadsDir, safeFilename), buffer);
+      } catch (_) {}
+    }
+
+    return `/uploads/${safeFilename}`;
+  } catch (err) {
+    console.warn('Failed to save base64 image to disk:', err.message);
+    return base64Data;
+  }
 }
-flushDb();
 
 // Helper: Safely delete an uploaded image file from disk to prevent orphaned files
 function deleteLocalImageFile(imageUrl) {
@@ -172,19 +200,114 @@ function deleteLocalImageFile(imageUrl) {
   }
 }
 
-// ======================== REST API ROUTES (100% SQLite) ======================== //
+// Sync back to seed copy in data/ when running locally
+function syncSeedCopy() {
+  if (!isVercel && dbPath !== seedDbPath && fs.existsSync(dbPath)) {
+    try {
+      fs.copyFileSync(dbPath, seedDbPath);
+      fs.copyFileSync(dbPath, legacySeedDbPath);
+    } catch (_) {}
+  }
+}
 
-// 0. GET Full Menu in 1 Call directly from SQLite
-app.get('/api/menu', (req, res) => {
+// Initialize SQLite 3 Tables
+async function initDatabase() {
   try {
-    const settingsRows = db.prepare('SELECT key, value FROM settings').all();
+    await dbExec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS categories (
+        id TEXT PRIMARY KEY,
+        nameEn TEXT NOT NULL,
+        nameAr TEXT NOT NULL,
+        icon TEXT DEFAULT 'utensils',
+        displayOrder INTEGER DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS dishes (
+        id TEXT PRIMARY KEY,
+        categoryId TEXT NOT NULL,
+        nameEn TEXT NOT NULL,
+        nameAr TEXT NOT NULL,
+        descEn TEXT,
+        descAr TEXT,
+        price REAL NOT NULL,
+        image TEXT,
+        isChefSpecial INTEGER DEFAULT 0,
+        isBestSeller INTEGER DEFAULT 0,
+        isVegetarian INTEGER DEFAULT 0,
+        isSpicy INTEGER DEFAULT 0,
+        inStock INTEGER DEFAULT 1,
+        createdAt TEXT,
+        updatedAt TEXT,
+        FOREIGN KEY(categoryId) REFERENCES categories(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Basic Settings fallback only if table is completely empty (no mock dishes ever inserted!)
+    const checkInit = await dbGet("SELECT value FROM settings WHERE key = 'isInitialized'");
+    if (!checkInit) {
+      const defaultSettings = {
+        restaurantNameEn: 'Jungle',
+        restaurantNameAr: 'جانغل',
+        taglineEn: 'Rooftop & Lounge Dining Experience',
+        taglineAr: 'تجربة طعام وسهرات استثنائية على الروف توب',
+        subtitleEn: 'Panoramic Skyline • Prime Botanical Cuts • Artisanal Mixology',
+        subtitleAr: 'إطلالة أفق بانورامية • أرقى قطع اللحوم • كوكتيلات فاخرة',
+        addressEn: 'Ankawa, Main Street, Luxury Hotel',
+        addressAr: 'عنكاوة - الشارع الرئيسي - فندق luxury',
+        mapUrl: 'https://maps.app.goo.gl/xiSWgf6a2JBKpTya9',
+        logoUrl: '',
+        heroBgUrl: '',
+        isInitialized: 'true',
+      };
+
+      for (const [k, v] of Object.entries(defaultSettings)) {
+        await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [k, String(v ?? '')]);
+      }
+
+      const defaultCategories = [
+        { id: 'steaks', nameEn: 'Steaks & Grills', nameAr: 'مشاوي وستيك فاخر', icon: 'flame', displayOrder: 1 },
+        { id: 'appetizers', nameEn: 'Appetizers & Tapas', nameAr: 'مقبلات وتاباس', icon: 'utensils', displayOrder: 2 },
+        { id: 'sushi', nameEn: 'Sushi & Raw Bar', nameAr: 'سوشي ومأكولات بحرية', icon: 'sparkles', displayOrder: 3 },
+        { id: 'cocktails', nameEn: 'Signature Cocktails', nameAr: 'كوكتيلات مميزة', icon: 'wine', displayOrder: 4 },
+        { id: 'mocktails', nameEn: 'Mocktails & Tonics', nameAr: 'موكتيلات وعصائر', icon: 'coffee', displayOrder: 5 },
+        { id: 'desserts', nameEn: 'Decadent Desserts', nameAr: 'حلويات فاخرة', icon: 'star', displayOrder: 6 },
+        { id: 'shisha', nameEn: 'Shisha & Lounge', nameAr: 'شيشة ولاونج سهرات', icon: 'flame', displayOrder: 7 },
+      ];
+
+      for (const cat of defaultCategories) {
+        await dbRun('INSERT OR REPLACE INTO categories (id, nameEn, nameAr, icon, displayOrder) VALUES (?, ?, ?, ?, ?)', [
+          cat.id, cat.nameEn, cat.nameAr, cat.icon, cat.displayOrder
+        ]);
+      }
+
+      syncSeedCopy();
+    }
+  } catch (err) {
+    console.error('Error initializing SQLite 3 database:', err);
+  }
+}
+
+initDatabase();
+
+// ======================== REST API ROUTES (100% SQLite 3) ======================== //
+
+// 0. GET Full Menu in 1 Call directly from SQLite 3
+app.get('/api/menu', async (req, res) => {
+  try {
+    const settingsRows = await dbAll('SELECT key, value FROM settings');
     const settings = {};
     for (const r of settingsRows) {
       settings[r.key] = r.value;
     }
 
-    const categories = db.prepare('SELECT * FROM categories ORDER BY displayOrder ASC, nameEn ASC').all();
-    const dishes = db.prepare('SELECT * FROM dishes ORDER BY rowid DESC').all().map(d => ({
+    const categories = await dbAll('SELECT * FROM categories ORDER BY displayOrder ASC, nameEn ASC');
+    const dishesRaw = await dbAll('SELECT * FROM dishes ORDER BY rowid DESC');
+    const dishes = dishesRaw.map(d => ({
       ...d,
       isChefSpecial: Boolean(d.isChefSpecial),
       isBestSeller: Boolean(d.isBestSeller),
@@ -195,32 +318,34 @@ app.get('/api/menu', (req, res) => {
 
     res.json({ settings, categories, dishes, updatedAt: new Date().toISOString() });
   } catch (err) {
+    console.error('SQLite 3 /api/menu error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // 1. GET Settings
-app.get('/api/settings', (req, res) => {
+app.get('/api/settings', async (req, res) => {
   try {
-    const rows = db.prepare('SELECT key, value FROM settings').all();
+    const rows = await dbAll('SELECT key, value FROM settings');
     const settings = {};
     for (const row of rows) {
       settings[row.key] = row.value;
     }
     res.json(settings);
   } catch (err) {
+    console.error('SQLite 3 /api/settings error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 2. POST Update Settings (Cleans up old images when replaced or deleted)
-app.post('/api/settings', (req, res) => {
+// 2. POST Update Settings
+app.post('/api/settings', async (req, res) => {
   try {
     const updates = req.body;
 
     // Clean up old logo if replaced
     if (updates.logoUrl !== undefined) {
-      const oldLogo = db.prepare("SELECT value FROM settings WHERE key = 'logoUrl'").get();
+      const oldLogo = await dbGet("SELECT value FROM settings WHERE key = 'logoUrl'");
       if (oldLogo && oldLogo.value && oldLogo.value !== updates.logoUrl) {
         deleteLocalImageFile(oldLogo.value);
       }
@@ -228,79 +353,88 @@ app.post('/api/settings', (req, res) => {
 
     // Clean up old hero background if replaced
     if (updates.heroBgUrl !== undefined) {
-      const oldBg = db.prepare("SELECT value FROM settings WHERE key = 'heroBgUrl'").get();
+      const oldBg = await dbGet("SELECT value FROM settings WHERE key = 'heroBgUrl'");
       if (oldBg && oldBg.value && oldBg.value !== updates.heroBgUrl) {
         deleteLocalImageFile(oldBg.value);
       }
     }
 
-    const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
     for (const [key, value] of Object.entries(updates)) {
-      stmt.run(key, String(value ?? ''));
+      let finalVal = String(value ?? '');
+      if (finalVal.startsWith('data:image/')) {
+        finalVal = saveBase64Image(finalVal);
+      }
+      await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, finalVal]);
     }
 
-    flushDb();
-    res.json({ success: true, message: 'Settings updated successfully in SQLite database' });
+    syncSeedCopy();
+    res.json({ success: true, message: 'Settings updated successfully in SQLite 3 database' });
   } catch (err) {
+    console.error('SQLite 3 settings update error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // 3. GET Categories
-app.get('/api/categories', (req, res) => {
+app.get('/api/categories', async (req, res) => {
   try {
-    const categories = db.prepare('SELECT * FROM categories ORDER BY displayOrder ASC, nameEn ASC').all();
+    const categories = await dbAll('SELECT * FROM categories ORDER BY displayOrder ASC, nameEn ASC');
     res.json(categories);
   } catch (err) {
+    console.error('SQLite 3 /api/categories error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // 4. POST Add / Update Category
-app.post('/api/categories', (req, res) => {
+app.post('/api/categories', async (req, res) => {
   try {
     const { id, nameEn, nameAr, icon, displayOrder } = req.body;
     const catId = id || `cat-${Date.now()}`;
 
-    const stmt = db.prepare('INSERT OR REPLACE INTO categories (id, nameEn, nameAr, icon, displayOrder) VALUES (?, ?, ?, ?, ?)');
-    stmt.run(catId, nameEn || '', nameAr || '', icon || 'utensils', Number(displayOrder) || 0);
+    await dbRun(
+      'INSERT OR REPLACE INTO categories (id, nameEn, nameAr, icon, displayOrder) VALUES (?, ?, ?, ?, ?)',
+      [catId, nameEn || '', nameAr || '', icon || 'utensils', Number(displayOrder) || 0]
+    );
 
-    flushDb();
+    syncSeedCopy();
     res.json({ success: true, id: catId });
   } catch (err) {
+    console.error('SQLite 3 category save error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 5. DELETE Category (Cleanly removes dishes & their image files)
-app.delete('/api/categories/:id', (req, res) => {
+// 5. DELETE Category
+app.delete('/api/categories/:id', async (req, res) => {
   try {
     const catId = req.params.id;
-    const count = db.prepare('SELECT COUNT(*) as count FROM categories').get().count;
-    if (count <= 1) {
+    const countRow = await dbGet('SELECT COUNT(*) as count FROM categories');
+    if (countRow && countRow.count <= 1) {
       return res.status(400).json({ error: 'Cannot delete the only remaining category' });
     }
 
     // Delete image files of all dishes under this category
-    const dishes = db.prepare('SELECT image FROM dishes WHERE categoryId = ?').all();
+    const dishes = await dbAll('SELECT image FROM dishes WHERE categoryId = ?', [catId]);
     for (const d of dishes) {
       if (d.image) deleteLocalImageFile(d.image);
     }
 
-    db.prepare('DELETE FROM dishes WHERE categoryId = ?').run(catId);
-    db.prepare('DELETE FROM categories WHERE id = ?').run(catId);
+    await dbRun('DELETE FROM dishes WHERE categoryId = ?', [catId]);
+    await dbRun('DELETE FROM categories WHERE id = ?', [catId]);
 
-    flushDb();
-    res.json({ success: true, message: 'Category and its dishes deleted cleanly from database' });
+    syncSeedCopy();
+    res.json({ success: true, message: 'Category and its dishes deleted cleanly from SQLite 3 database' });
   } catch (err) {
+    console.error('SQLite 3 category delete error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // 6. GET All Dishes
-app.get('/api/dishes', (req, res) => {
+app.get('/api/dishes', async (req, res) => {
   try {
-    const dishes = db.prepare('SELECT * FROM dishes ORDER BY rowid DESC').all();
+    const dishes = await dbAll('SELECT * FROM dishes ORDER BY rowid DESC');
     const formatted = dishes.map(d => ({
       ...d,
       isChefSpecial: Boolean(d.isChefSpecial),
@@ -311,33 +445,39 @@ app.get('/api/dishes', (req, res) => {
     }));
     res.json(formatted);
   } catch (err) {
+    console.error('SQLite 3 /api/dishes error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 7. POST Add New Dish (Saves directly to SQLite)
-app.post('/api/dishes', (req, res) => {
+// 7. POST Add New Dish
+app.post('/api/dishes', async (req, res) => {
   try {
     const d = req.body;
     const dishId = d.id || `dish-${Date.now()}`;
     const now = new Date().toISOString();
 
-    const stmt = db.prepare(`
+    let finalImageUrl = d.image || '';
+    if (finalImageUrl.startsWith('data:image/')) {
+      finalImageUrl = saveBase64Image(finalImageUrl);
+    }
+
+    const sql = `
       INSERT INTO dishes (
         id, categoryId, nameEn, nameAr, descEn, descAr, price, image,
         isChefSpecial, isBestSeller, isVegetarian, isSpicy, inStock, createdAt, updatedAt
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    `;
 
-    stmt.run(
+    await dbRun(sql, [
       dishId,
-      d.categoryId,
+      d.categoryId || 'steaks',
       d.nameEn || '',
       d.nameAr || '',
       d.descEn || '',
       d.descAr || '',
       Number(d.price) || 0,
-      d.image || '',
+      finalImageUrl,
       d.isChefSpecial ? 1 : 0,
       d.isBestSeller ? 1 : 0,
       d.isVegetarian ? 1 : 0,
@@ -345,29 +485,39 @@ app.post('/api/dishes', (req, res) => {
       d.inStock !== false ? 1 : 0,
       now,
       now
-    );
+    ]);
 
-    flushDb();
-    res.json({ success: true, id: dishId });
+    syncSeedCopy();
+    res.json({ success: true, id: dishId, image: finalImageUrl });
   } catch (err) {
+    console.error('SQLite 3 add dish error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 8. PUT Update Dish (Deletes old image file if replaced, completely updates SQLite row)
-app.put('/api/dishes/:id', (req, res) => {
+// 8. PUT Update Dish
+app.put('/api/dishes/:id', async (req, res) => {
   try {
     const dishId = req.params.id;
     const d = req.body;
     const now = new Date().toISOString();
 
-    // Check if image was replaced -> delete old image file from disk
-    const oldDish = db.prepare('SELECT image FROM dishes WHERE id = ?').get(dishId);
-    if (oldDish && oldDish.image && oldDish.image !== d.image) {
+    const oldDish = await dbGet('SELECT * FROM dishes WHERE id = ?', [dishId]);
+    if (!oldDish) {
+      return res.status(404).json({ error: 'الوجبة غير موجودة في قاعدة البيانات / Dish not found' });
+    }
+
+    let finalImageUrl = d.image !== undefined ? d.image : oldDish.image;
+    if (typeof finalImageUrl === 'string' && finalImageUrl.startsWith('data:image/')) {
+      finalImageUrl = saveBase64Image(finalImageUrl);
+    }
+
+    // If image was replaced or removed, delete old image file from disk
+    if (oldDish.image && oldDish.image !== finalImageUrl && oldDish.image.startsWith('/uploads/')) {
       deleteLocalImageFile(oldDish.image);
     }
 
-    const stmt = db.prepare(`
+    const sql = `
       UPDATE dishes SET
         categoryId = ?,
         nameEn = ?,
@@ -383,76 +533,77 @@ app.put('/api/dishes/:id', (req, res) => {
         inStock = ?,
         updatedAt = ?
       WHERE id = ?
-    `);
+    `;
 
-    const result = stmt.run(
-      d.categoryId,
-      d.nameEn || '',
-      d.nameAr || '',
-      d.descEn || '',
-      d.descAr || '',
-      Number(d.price) || 0,
-      d.image || '',
-      d.isChefSpecial ? 1 : 0,
-      d.isBestSeller ? 1 : 0,
-      d.isVegetarian ? 1 : 0,
-      d.isSpicy ? 1 : 0,
-      d.inStock ? 1 : 0,
+    await dbRun(sql, [
+      d.categoryId || oldDish.categoryId,
+      d.nameEn !== undefined ? d.nameEn : oldDish.nameEn,
+      d.nameAr !== undefined ? d.nameAr : oldDish.nameAr,
+      d.descEn !== undefined ? d.descEn : oldDish.descEn,
+      d.descAr !== undefined ? d.descAr : oldDish.descAr,
+      d.price !== undefined ? (Number(d.price) || 0) : oldDish.price,
+      finalImageUrl,
+      d.isChefSpecial !== undefined ? (d.isChefSpecial ? 1 : 0) : oldDish.isChefSpecial,
+      d.isBestSeller !== undefined ? (d.isBestSeller ? 1 : 0) : oldDish.isBestSeller,
+      d.isVegetarian !== undefined ? (d.isVegetarian ? 1 : 0) : oldDish.isVegetarian,
+      d.isSpicy !== undefined ? (d.isSpicy ? 1 : 0) : oldDish.isSpicy,
+      d.inStock !== undefined ? (d.inStock ? 1 : 0) : oldDish.inStock,
       now,
       dishId
-    );
+    ]);
 
-    if (result.changes === 0) {
-      return res.status(404).json({ error: 'Dish not found' });
-    }
-
-    flushDb();
-    res.json({ success: true, message: 'Dish updated cleanly in SQLite' });
+    syncSeedCopy();
+    res.json({ success: true, message: 'Dish updated cleanly in SQLite 3', id: dishId, image: finalImageUrl });
   } catch (err) {
+    console.error('SQLite 3 update dish error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 9. DELETE Dish (Completely deletes from SQLite AND deletes image file from disk)
-app.delete('/api/dishes/:id', (req, res) => {
+// 9. DELETE Dish
+app.delete('/api/dishes/:id', async (req, res) => {
   try {
     const dishId = req.params.id;
 
-    // Get dish image to delete its file from disk
-    const dish = db.prepare('SELECT image FROM dishes WHERE id = ?').get(dishId);
-    if (dish && dish.image) {
+    const dish = await dbGet('SELECT image FROM dishes WHERE id = ?', [dishId]);
+    if (!dish) {
+      return res.status(404).json({ error: 'الوجبة غير موجودة في قاعدة البيانات / Dish not found' });
+    }
+
+    if (dish.image && dish.image.startsWith('/uploads/')) {
       deleteLocalImageFile(dish.image);
     }
 
-    const result = db.prepare('DELETE FROM dishes WHERE id = ?').run(dishId);
-    if (result.changes === 0) {
-      return res.status(404).json({ error: 'Dish not found' });
-    }
+    await dbRun('DELETE FROM dishes WHERE id = ?', [dishId]);
 
-    flushDb();
-    res.json({ success: true, message: 'Dish and its image deleted completely from database' });
+    syncSeedCopy();
+    res.json({ success: true, message: 'Dish and its image deleted completely from SQLite 3 database' });
   } catch (err) {
+    console.error('SQLite 3 delete dish error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 9.1 POST Clear All Dishes (Deletes all dish rows from SQLite & wipes their files)
-app.post('/api/dishes/clear-all', (req, res) => {
+// 9.1 POST Clear All Dishes
+app.post('/api/dishes/clear-all', async (req, res) => {
   try {
-    const dishes = db.prepare('SELECT image FROM dishes').all();
+    const dishes = await dbAll('SELECT image FROM dishes');
     for (const d of dishes) {
-      if (d.image) deleteLocalImageFile(d.image);
+      if (d.image && d.image.startsWith('/uploads/')) {
+        deleteLocalImageFile(d.image);
+      }
     }
 
-    db.exec('DELETE FROM dishes;');
-    flushDb();
-    res.json({ success: true, message: 'All dishes and their images cleared completely from database' });
+    await dbRun('DELETE FROM dishes;');
+    syncSeedCopy();
+    res.json({ success: true, message: 'All dishes and their images cleared completely from SQLite 3 database' });
   } catch (err) {
+    console.error('SQLite 3 clear-all error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 10. POST Image Upload (Saves image to uploads/ & returns clean relative URL)
+// 10. POST Image Upload
 app.post('/api/upload', (req, res) => {
   try {
     const { base64Data, filename } = req.body;
@@ -460,58 +611,27 @@ app.post('/api/upload', (req, res) => {
       return res.status(400).json({ error: 'No image data provided' });
     }
 
-    let cleanBase64 = base64Data;
-    let ext = 'jpg';
-
-    if (base64Data.includes(',')) {
-      const parts = base64Data.split(',');
-      const meta = parts[0].toLowerCase();
-      cleanBase64 = parts.slice(1).join(',');
-
-      if (meta.includes('webp')) ext = 'webp';
-      else if (meta.includes('png')) ext = 'png';
-      else if (meta.includes('svg')) ext = 'svg';
-      else if (meta.includes('gif')) ext = 'gif';
-      else if (meta.includes('avif')) ext = 'avif';
-      else if (meta.includes('jpeg') || meta.includes('jpg')) ext = 'jpg';
-    }
-
-    // Strip any whitespace/newlines that could corrupt binary decoding
-    const buffer = Buffer.from(cleanBase64.replace(/\s+/g, ''), 'base64');
-    const safeFilename = `img_${Date.now()}_${Math.floor(Math.random() * 10000)}.${ext}`;
-
-    // Write to uploads directory
-    let saved = false;
-    try {
-      fs.writeFileSync(path.join(localUploadsDir, safeFilename), buffer);
-      saved = true;
-    } catch (_) {}
-
-    if (!saved && isVercel) {
-      try {
-        fs.writeFileSync(path.join(tmpUploadsDir, safeFilename), buffer);
-        saved = true;
-      } catch (_) {}
-    }
-
-    const relativeUrl = `/uploads/${safeFilename}`;
-    res.json({ success: true, url: relativeUrl, base64: base64Data, extension: ext });
+    const savedUrl = saveBase64Image(base64Data);
+    res.json({ success: true, url: savedUrl });
   } catch (err) {
+    console.error('Upload error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // 11. POST Reset to Factory Defaults
-app.post('/api/reset', (req, res) => {
+app.post('/api/reset', async (req, res) => {
   try {
-    const dishes = db.prepare('SELECT image FROM dishes').all();
+    const dishes = await dbAll('SELECT image FROM dishes');
     for (const d of dishes) {
-      if (d.image) deleteLocalImageFile(d.image);
+      if (d.image && d.image.startsWith('/uploads/')) {
+        deleteLocalImageFile(d.image);
+      }
     }
 
-    db.exec('DELETE FROM dishes;');
-    db.exec('DELETE FROM categories;');
-    db.exec('DELETE FROM settings;');
+    await dbRun('DELETE FROM dishes;');
+    await dbRun('DELETE FROM categories;');
+    await dbRun('DELETE FROM settings;');
 
     const defaultSettings = {
       restaurantNameEn: 'Jungle',
@@ -528,9 +648,8 @@ app.post('/api/reset', (req, res) => {
       isInitialized: 'true',
     };
 
-    const insertSettingStmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
     for (const [key, value] of Object.entries(defaultSettings)) {
-      insertSettingStmt.run(key, value);
+      await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, String(value ?? '')]);
     }
 
     const defaultCategories = [
@@ -543,28 +662,30 @@ app.post('/api/reset', (req, res) => {
       { id: 'shisha', nameEn: 'Shisha & Lounge', nameAr: 'شيشة ولاونج سهرات', icon: 'flame', displayOrder: 7 },
     ];
 
-    const insertCatStmt = db.prepare('INSERT INTO categories (id, nameEn, nameAr, icon, displayOrder) VALUES (?, ?, ?, ?, ?)');
     for (const cat of defaultCategories) {
-      insertCatStmt.run(cat.id, cat.nameEn, cat.nameAr, cat.icon, cat.displayOrder);
+      await dbRun('INSERT INTO categories (id, nameEn, nameAr, icon, displayOrder) VALUES (?, ?, ?, ?, ?)', [
+        cat.id, cat.nameEn, cat.nameAr, cat.icon, cat.displayOrder
+      ]);
     }
 
-    flushDb();
-    res.json({ success: true, message: 'Database reset to clean state' });
+    syncSeedCopy();
+    res.json({ success: true, message: 'Database reset to clean state with 0 dishes' });
   } catch (err) {
+    console.error('SQLite 3 reset error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 12. GET Backup (Export full database as JSON)
-app.get('/api/backup', (req, res) => {
+// 12. GET Backup
+app.get('/api/backup', async (req, res) => {
   try {
-    const settingsRows = db.prepare('SELECT key, value FROM settings').all();
+    const settingsRows = await dbAll('SELECT key, value FROM settings');
     const settings = {};
     for (const row of settingsRows) {
       settings[row.key] = row.value;
     }
-    const categories = db.prepare('SELECT * FROM categories ORDER BY displayOrder ASC').all();
-    const dishes = db.prepare('SELECT * FROM dishes ORDER BY createdAt DESC').all();
+    const categories = await dbAll('SELECT * FROM categories ORDER BY displayOrder ASC');
+    const dishes = await dbAll('SELECT * FROM dishes ORDER BY createdAt DESC');
 
     res.json({
       exportedAt: new Date().toISOString(),
@@ -574,12 +695,13 @@ app.get('/api/backup', (req, res) => {
       dishes,
     });
   } catch (err) {
+    console.error('SQLite 3 backup error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 13. POST Restore (Import full database from JSON)
-app.post('/api/restore', (req, res) => {
+// 13. POST Restore
+app.post('/api/restore', async (req, res) => {
   try {
     const { settings, categories, dishes } = req.body;
     if (!settings && !categories && !dishes) {
@@ -587,45 +709,46 @@ app.post('/api/restore', (req, res) => {
     }
 
     if (settings && typeof settings === 'object') {
-      const insertSettingStmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
       for (const [key, value] of Object.entries(settings)) {
-        insertSettingStmt.run(key, String(value ?? ''));
+        await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, String(value ?? '')]);
       }
-      insertSettingStmt.run('isInitialized', 'true');
+      await dbRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('isInitialized', 'true')");
     }
 
     if (Array.isArray(categories) && categories.length > 0) {
-      db.exec('DELETE FROM categories;');
-      const insertCatStmt = db.prepare('INSERT INTO categories (id, nameEn, nameAr, icon, displayOrder) VALUES (?, ?, ?, ?, ?)');
+      await dbRun('DELETE FROM categories;');
       for (const cat of categories) {
-        insertCatStmt.run(cat.id, cat.nameEn, cat.nameAr, cat.icon || 'utensils', Number(cat.displayOrder) || 0);
+        await dbRun('INSERT INTO categories (id, nameEn, nameAr, icon, displayOrder) VALUES (?, ?, ?, ?, ?)', [
+          cat.id, cat.nameEn, cat.nameAr, cat.icon || 'utensils', Number(cat.displayOrder) || 0
+        ]);
       }
     }
 
     if (Array.isArray(dishes)) {
-      db.exec('DELETE FROM dishes;');
-      const insertDishStmt = db.prepare(`
+      await dbRun('DELETE FROM dishes;');
+      const sql = `
         INSERT INTO dishes (
           id, categoryId, nameEn, nameAr, descEn, descAr, price, image,
           isChefSpecial, isBestSeller, isVegetarian, isSpicy, inStock, createdAt, updatedAt
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
+      `;
       const now = new Date().toISOString();
       for (const d of dishes) {
-        insertDishStmt.run(
+        await dbRun(sql, [
           d.id, d.categoryId, d.nameEn, d.nameAr, d.descEn || '', d.descAr || '',
           Number(d.price) || 0, d.image || '',
           d.isChefSpecial ? 1 : 0, d.isBestSeller ? 1 : 0,
           d.isVegetarian ? 1 : 0, d.isSpicy ? 1 : 0,
           d.inStock !== false ? 1 : 0,
           d.createdAt || now, d.updatedAt || now
-        );
+        ]);
       }
     }
 
-    flushDb();
-    res.json({ success: true, message: 'Data restored successfully to SQLite database' });
+    syncSeedCopy();
+    res.json({ success: true, message: 'Data restored successfully to SQLite 3 database' });
   } catch (err) {
+    console.error('SQLite 3 restore error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -644,7 +767,7 @@ app.use((req, res) => {
 if (!isVercel && require.main === module) {
   app.listen(PORT, () => {
     console.log(`\n🌿 Jungle Rooftop & Lounge Server running at: http://localhost:${PORT}`);
-    console.log(`📁 Database: SQLite (Native Node 24 at ${dbPath})`);
+    console.log(`📁 Database: SQLite 3 at ${dbPath}`);
   });
 }
 
