@@ -163,7 +163,7 @@ function openDatabase() {
     try {
       syncDb.exec('PRAGMA journal_mode = DELETE;');
       syncDb.exec('PRAGMA synchronous = FULL;');
-      syncDb.exec('PRAGMA foreign_keys = ON;');
+      syncDb.exec('PRAGMA foreign_keys = OFF;');
     } catch (_) {}
 
     dbRun = async (sql, params = []) => {
@@ -600,7 +600,7 @@ app.delete('/api/categories/:id', async (req, res) => {
     const catId = req.params.id;
 
     // Unassign category from dishes so they stay safely visible under "جميع التصنيفات"
-    await dbRun('UPDATE dishes SET categoryId = "" WHERE categoryId = ?', [catId]);
+    await dbRun("UPDATE dishes SET categoryId = '' WHERE categoryId = ?", [catId]);
     await dbRun('DELETE FROM categories WHERE id = ?', [catId]);
 
     await persistDatabase();
@@ -615,7 +615,7 @@ app.delete('/api/categories/:id', async (req, res) => {
 app.post('/api/categories/clear-all', async (req, res) => {
   try {
     // Unassign categories from dishes so dishes remain accessible under "جميع التصنيفات"
-    await dbRun('UPDATE dishes SET categoryId = "";');
+    await dbRun("UPDATE dishes SET categoryId = '';");
     await dbRun('DELETE FROM categories;');
 
     await persistDatabase();
