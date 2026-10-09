@@ -1,21 +1,48 @@
 {
-  "framework": null,
-  "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --filter @workspace/jungle-rooftop build",
-  "outputDirectory": "artifacts/jungle-rooftop/dist/public",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "api-server": {
+      "root": "artifacts/api-server",
+      "framework": "express",
+      "entrypoint": "src/vercel.ts"
+    },
+    "jungle-rooftop": {
+      "root": "artifacts/jungle-rooftop",
+      "framework": "vite",
+      "buildCommand": "pnpm run build",
+      "outputDirectory": "dist/public"
+    },
+    "mockup-sandbox": {
+      "root": "artifacts/mockup-sandbox",
+      "framework": "vite",
+      "buildCommand": "pnpm run build",
+      "outputDirectory": "dist"
+    }
+  },
   "rewrites": [
     {
-      "source": "/admin",
-      "destination": "/admin/index.html"
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "api-server"
+      }
     },
     {
-      "source": "/admin/",
-      "destination": "/admin/index.html"
+      "source": "/admin",
+      "destination": {
+        "service": "jungle-rooftop"
+      }
+    },
+    {
+      "source": "/admin/(.*)",
+      "destination": {
+        "service": "jungle-rooftop"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "jungle-rooftop"
+      }
     }
-  ],
-  "functions": {
-    "api/[...path].ts": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }

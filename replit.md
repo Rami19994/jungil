@@ -25,8 +25,8 @@
 - `artifacts/api-server` — Express API, routes, and admin-session authorization.
 - `lib/db` — PostgreSQL schema, Drizzle ORM, and connection pool.
 - `lib/api-zod` — shared request/response validation schemas.
-- `api/[...path].ts` — Vercel serverless entry point; initializes default menu data before serving API requests.
-- `vercel.json` — Vercel build, static output, routes, and function settings.
+- `artifacts/api-server/src/vercel.ts` — Vercel API service entry point; initializes default menu data before serving API requests.
+- `vercel.json` — Vercel services, per-service build settings, and public route rewrites.
 
 ## Architecture decisions
 

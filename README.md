@@ -35,7 +35,7 @@ The workspace also contains an Express API in `artifacts/api-server`, shared dat
 1. Create a hosted PostgreSQL database and set `DATABASE_URL` in Vercel for Production and any Preview/Development environments that should use a database.
 2. Set `ADMIN_USERNAME`, `ADMIN_PASSWORD` (at least 12 characters; a long, unique password is recommended), and `SESSION_SECRET` (at least 32 characters) in Vercel's Environment Variables. Generate a secret with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"`.
 3. Before the first deployment, apply the database schema from a trusted machine with `pnpm --filter @workspace/db push` and `DATABASE_URL` set in that shell. Do not run schema changes automatically during every deployment.
-4. Import this repository into Vercel. `vercel.json` builds the menu and routes `/api/*` to the Express serverless function. The public menu and `/admin` share the same domain; API writes require the server-side admin session.
+4. Import this repository into Vercel. `vercel.json` defines separate `api-server`, `jungle-rooftop`, and `mockup-sandbox` services. The public menu and `/admin` are served by `jungle-rooftop`; `/api/*` is routed to `api-server`, and API writes require the server-side admin session. `mockup-sandbox` remains internal unless a public rewrite is explicitly added for it.
 
 The API stores menu image data in PostgreSQL. Vercel function requests have a 4 MB JSON limit in this project, so large backup restores or image payloads may need to be reduced. For larger media, use object storage rather than storing image data in the database.
 
