@@ -44,7 +44,7 @@ if (isVercel) {
 // SQLite 3 Database File Path - single source of truth: menu.sqlite3
 const dbFileName = 'menu.sqlite3';
 const seedDbPath = path.join(__dirname, dbFileName);
-const dbPath = isVercel ? path.join('/tmp', dbFileName) : seedDbPath;
+const dbPath = isVercel ? path.join('/tmp', dbFileName) : (process.env.MENU_DB_PATH || seedDbPath);
 
 // On Vercel, copy pre-seeded database to /tmp if not present yet
 if (isVercel && !fs.existsSync(dbPath)) {
@@ -65,112 +65,131 @@ if (!process.env.BLOB_READ_WRITE_TOKEN && fs.existsSync(path.join(__dirname, '.e
   } catch (_) {}
 }
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
-let isSyncingToBlob = false;
+let blobSyncQueue = Promise.resolve();
+let currentBlobVersion = null;
 
-async function syncDbToBlob() {
-  menuVersion = Date.now();
-  if (!BLOB_TOKEN) return;
-  if (isSyncingToBlob) return;
-  isSyncingToBlob = true;
-  try {
-    const { put } = require('@vercel/blob');
-    if (fs.existsSync(dbPath)) {
-      const buffer = fs.readFileSync(dbPath);
-      await put('menu.sqlite3', buffer, {
-        access: 'public',
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        token: BLOB_TOKEN,
-      });
-      console.log('☁️ Database synced to Vercel Blob successfully (allowOverwrite: true)');
-    }
-  } catch (err) {
-    console.warn('Vercel Blob sync notice:', err.message);
-  } finally {
-    isSyncingToBlob = false;
+function getBlobVersion(blob) {
+  return [blob.url, blob.uploadedAt, blob.etag, blob.size].map(value => String(value ?? '')).join(':');
+}
+
+function isValidSqliteDatabase(buffer) {
+  return buffer.length > 2000 && buffer.subarray(0, 16).equals(Buffer.from('SQLite format 3\0'));
+}
+
+function syncDbToBlob() {
+  if (!BLOB_TOKEN) {
+    return isVercel
+      ? Promise.reject(new Error('Persistent storage is not configured. Set BLOB_READ_WRITE_TOKEN in the Vercel project environment.'))
+      : Promise.resolve();
   }
+
+  const sync = async () => {
+    const { put } = require('@vercel/blob');
+    const buffer = fs.readFileSync(dbPath);
+    const blob = await put(dbFileName, buffer, {
+      access: 'public',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      token: BLOB_TOKEN,
+    });
+    currentBlobVersion = getBlobVersion(blob);
+    console.log('☁️ Database persisted to Vercel Blob');
+  };
+
+  const pendingSync = blobSyncQueue.then(sync, sync);
+  blobSyncQueue = pendingSync.catch(() => {});
+  return pendingSync;
 }
 
 // Dual-Driver SQLite 3 Engine (sqlite3 package with node:sqlite seamless fallback for 100% Vercel & Localhost reliability)
 let db;
-let dbRun, dbGet, dbAll, dbExec;
+let dbRun, dbGet, dbAll, dbExec, dbClose;
 
-try {
-  const sqlite3 = require('sqlite3').verbose();
-  const nativeDb = new sqlite3.Database(dbPath, (err) => {
-    if (err) throw err;
-  });
-
-  nativeDb.serialize(() => {
-    nativeDb.run('PRAGMA journal_mode = DELETE;');
-    nativeDb.run('PRAGMA synchronous = FULL;');
-    nativeDb.run('PRAGMA foreign_keys = OFF;');
-    nativeDb.run('PRAGMA busy_timeout = 5000;');
-  });
-
-  dbRun = (sql, params = []) => new Promise((resolve, reject) => {
-    nativeDb.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve({ lastID: this.lastID, changes: this.changes });
-    });
-  });
-
-  dbGet = (sql, params = []) => new Promise((resolve, reject) => {
-    nativeDb.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
-
-  dbAll = (sql, params = []) => new Promise((resolve, reject) => {
-    nativeDb.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows || []);
-    });
-  });
-
-  dbExec = (sql) => new Promise((resolve, reject) => {
-    nativeDb.exec(sql, (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
-
-  db = nativeDb;
-  console.log(`📁 Connected to SQLite 3 database via 'sqlite3' at: ${dbPath}`);
-} catch (driverErr) {
-  console.warn(`sqlite3 native package load note (${driverErr.message}), using native SQLite 3 engine...`);
-  const { DatabaseSync } = require('node:sqlite');
-  const syncDb = new DatabaseSync(dbPath);
-
+function openDatabase() {
   try {
-    syncDb.exec('PRAGMA journal_mode = DELETE;');
-    syncDb.exec('PRAGMA synchronous = FULL;');
-    syncDb.exec('PRAGMA foreign_keys = ON;');
-  } catch (_) {}
+    const sqlite3 = require('sqlite3').verbose();
+    const nativeDb = new sqlite3.Database(dbPath, (err) => {
+      if (err) throw err;
+    });
 
-  dbRun = async (sql, params = []) => {
-    const stmt = syncDb.prepare(sql);
-    const result = stmt.run(...params);
-    return { lastID: result.lastInsertRowid, changes: result.changes };
-  };
+    nativeDb.serialize(() => {
+      nativeDb.run('PRAGMA journal_mode = DELETE;');
+      nativeDb.run('PRAGMA synchronous = FULL;');
+      nativeDb.run('PRAGMA foreign_keys = OFF;');
+      nativeDb.run('PRAGMA busy_timeout = 5000;');
+    });
 
-  dbGet = async (sql, params = []) => {
-    const stmt = syncDb.prepare(sql);
-    return stmt.get(...params);
-  };
+    dbRun = (sql, params = []) => new Promise((resolve, reject) => {
+      nativeDb.run(sql, params, function (err) {
+        if (err) reject(err);
+        else resolve({ lastID: this.lastID, changes: this.changes });
+      });
+    });
 
-  dbAll = async (sql, params = []) => {
-    const stmt = syncDb.prepare(sql);
-    return stmt.all(...params) || [];
-  };
+    dbGet = (sql, params = []) => new Promise((resolve, reject) => {
+      nativeDb.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
 
-  dbExec = async (sql) => {
-    syncDb.exec(sql);
-  };
+    dbAll = (sql, params = []) => new Promise((resolve, reject) => {
+      nativeDb.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
 
-  db = syncDb;
-  console.log(`📁 Connected to SQLite 3 database via 'node:sqlite' at: ${dbPath}`);
+    dbExec = (sql) => new Promise((resolve, reject) => {
+      nativeDb.exec(sql, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    dbClose = () => new Promise((resolve, reject) => {
+      nativeDb.close((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    db = nativeDb;
+    console.log(`📁 Connected to SQLite 3 database via 'sqlite3' at: ${dbPath}`);
+  } catch (driverErr) {
+    console.warn(`sqlite3 native package load note (${driverErr.message}), using native SQLite 3 engine...`);
+    const { DatabaseSync } = require('node:sqlite');
+    const syncDb = new DatabaseSync(dbPath);
+
+    try {
+      syncDb.exec('PRAGMA journal_mode = DELETE;');
+      syncDb.exec('PRAGMA synchronous = FULL;');
+      syncDb.exec('PRAGMA foreign_keys = ON;');
+    } catch (_) {}
+
+    dbRun = async (sql, params = []) => {
+      const stmt = syncDb.prepare(sql);
+      const result = stmt.run(...params);
+      return { lastID: result.lastInsertRowid, changes: result.changes };
+    };
+
+    dbGet = async (sql, params = []) => {
+      const stmt = syncDb.prepare(sql);
+      return stmt.get(...params);
+    };
+
+    dbAll = async (sql, params = []) => {
+      const stmt = syncDb.prepare(sql);
+      return stmt.all(...params) || [];
+    };
+
+    dbExec = async (sql) => {
+      syncDb.exec(sql);
+    };
+    dbClose = async () => syncDb.close();
+
+    db = syncDb;
+    console.log(`📁 Connected to SQLite 3 database via 'node:sqlite' at: ${dbPath}`);
+  }
 }
 
 // Helper: Safely save Base64 data to disk in uploads/ and return clean URL
@@ -244,27 +263,14 @@ function deleteLocalImageFile(imageUrl) {
   }
 }
 
-// Sync database state, update seed.json, and push to Vercel Blob in background
-function syncSeedCopy() {
-  menuVersion = Date.now();
-  if (fs.existsSync(dbPath)) {
-    try {
-      if (typeof dbAll === 'function') {
-        dbAll('SELECT * FROM dishes ORDER BY rowid DESC').then(dishes => {
-          return dbAll('SELECT * FROM categories ORDER BY displayOrder ASC').then(categories => {
-            return dbAll('SELECT key, value FROM settings').then(settingsRows => {
-              const settings = {};
-              for (const r of settingsRows) settings[r.key] = r.value;
-              const seedContent = JSON.stringify({ settings, categories, dishes }, null, 2);
-              try { fs.writeFileSync(path.join(__dirname, 'seed.json'), seedContent); } catch (_) {}
-            });
-          });
-        }).catch(() => {});
-      }
-    } catch (_) {}
+// Wait for durable persistence before reporting a successful write to the client.
+async function persistDatabase() {
+  if (!isVercel) {
+    menuVersion = Date.now();
+    return;
   }
-  // Sync to Vercel Blob in background (never blocks client HTTP response)
-  syncDbToBlob().catch(() => {});
+  await syncDbToBlob();
+  menuVersion = Date.now();
 }
 
 // Initialize SQLite 3 Tables
@@ -272,24 +278,25 @@ async function initDatabase() {
   try {
     // If running on Vercel, pull latest persistent database from Vercel Blob if available
     if (isVercel && BLOB_TOKEN) {
-      try {
-        const { list } = require('@vercel/blob');
-        const blobList = await list({ token: BLOB_TOKEN, prefix: 'menu.sqlite3' });
-        const targetBlob = blobList.blobs.find(b => b.pathname === 'menu.sqlite3');
-        if (targetBlob && targetBlob.url) {
-          const response = await fetch(targetBlob.url + '?t=' + Date.now(), { cache: 'no-store' });
-          if (response.ok) {
-            const buf = Buffer.from(await response.arrayBuffer());
-            if (buf.length > 2000) {
-              fs.writeFileSync(dbPath, buf);
-              console.log(`☁️ Synced latest menu.sqlite3 from Vercel Blob (${buf.length} bytes)`);
-            }
-          }
+      const { list } = require('@vercel/blob');
+      const blobList = await list({ token: BLOB_TOKEN, prefix: dbFileName });
+      const targetBlob = blobList.blobs.find(b => b.pathname === dbFileName);
+      if (targetBlob && targetBlob.url) {
+        const response = await fetch(targetBlob.url + '?t=' + Date.now(), { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`Could not download the saved database from Vercel Blob (HTTP ${response.status})`);
         }
-      } catch (blobErr) {
-        console.warn('Vercel Blob restore notice:', blobErr.message);
+        const buf = Buffer.from(await response.arrayBuffer());
+        if (!isValidSqliteDatabase(buf)) {
+          throw new Error('The saved database in Vercel Blob is empty or invalid');
+        }
+        fs.writeFileSync(dbPath, buf);
+        currentBlobVersion = getBlobVersion(targetBlob);
+        console.log(`☁️ Restored database from Vercel Blob (${buf.length} bytes)`);
       }
     }
+
+    openDatabase();
 
     await dbExec(`
       CREATE TABLE IF NOT EXISTS settings (
@@ -363,16 +370,115 @@ async function initDatabase() {
         ]);
       }
 
-      syncSeedCopy();
+      if (BLOB_TOKEN) await persistDatabase();
     }
   } catch (err) {
     console.error('Error initializing SQLite 3 database:', err);
+    throw err;
   }
 }
 
-initDatabase();
+async function restoreLatestDatabaseFromBlob() {
+  const { list } = require('@vercel/blob');
+  const blobList = await list({ token: BLOB_TOKEN, prefix: dbFileName });
+  const targetBlob = blobList.blobs.find(blob => blob.pathname === dbFileName);
+
+  if (!targetBlob) {
+    if (currentBlobVersion) {
+      throw new Error('The saved database was not found in Vercel Blob');
+    }
+    return;
+  }
+
+  const blobVersion = getBlobVersion(targetBlob);
+  if (blobVersion === currentBlobVersion) return;
+
+  const response = await fetch(targetBlob.url + '?t=' + Date.now(), { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`Could not download the latest database from Vercel Blob (HTTP ${response.status})`);
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (!isValidSqliteDatabase(buffer)) {
+    throw new Error('The latest database in Vercel Blob is empty or invalid');
+  }
+
+  const replacementPath = `${dbPath}.download`;
+  fs.writeFileSync(replacementPath, buffer);
+
+  try {
+    await dbClose();
+    db = null;
+    fs.renameSync(replacementPath, dbPath);
+    openDatabase();
+    await dbGet('PRAGMA schema_version');
+    currentBlobVersion = blobVersion;
+    console.log(`☁️ Refreshed database from Vercel Blob (${buffer.length} bytes)`);
+  } catch (err) {
+    if (!db && fs.existsSync(dbPath)) openDatabase();
+    throw err;
+  } finally {
+    if (fs.existsSync(replacementPath)) fs.unlinkSync(replacementPath);
+  }
+}
+
+const databaseReady = initDatabase();
+databaseReady.catch(() => {});
+let apiRequestQueue = Promise.resolve();
+
+app.use('/api', async (req, res, next) => {
+  try {
+    await databaseReady;
+  } catch (err) {
+    console.error('Database is unavailable:', err);
+    return res.status(503).json({ error: 'Database initialization failed', details: err.message });
+  }
+
+  const previousRequest = apiRequestQueue;
+  let releaseRequest;
+  let requestReleased = false;
+  apiRequestQueue = new Promise(resolve => { releaseRequest = resolve; });
+  await previousRequest;
+  const releaseRequestOnce = () => {
+    if (requestReleased) return;
+    requestReleased = true;
+    releaseRequest();
+  };
+  res.once('finish', releaseRequestOnce);
+  res.once('close', () => {
+    if (!res.writableFinished) releaseRequestOnce();
+  });
+
+  if (isVercel && !BLOB_TOKEN && req.path !== '/upload' && req.path !== '/health') {
+    return res.status(503).json({
+      error: 'Persistent storage is not configured. Set BLOB_READ_WRITE_TOKEN in the Vercel project environment.',
+    });
+  }
+
+  if (isVercel && BLOB_TOKEN) {
+    try {
+      await restoreLatestDatabaseFromBlob();
+    } catch (err) {
+      console.error('Could not refresh database from Vercel Blob:', err);
+      releaseRequestOnce();
+      return res.status(503).json({ error: 'Could not load the latest saved database', details: err.message });
+    }
+  }
+
+  return next();
+});
 
 // ======================== REST API ROUTES (100% SQLite 3) ======================== //
+
+app.get('/api/health', (req, res) => {
+  const persistentStorageConfigured = !isVercel || Boolean(BLOB_TOKEN);
+  res.status(persistentStorageConfigured ? 200 : 503).json({
+    status: persistentStorageConfigured ? 'ok' : 'storage_not_configured',
+    runtime: isVercel ? 'vercel' : 'local',
+    storage: isVercel ? (BLOB_TOKEN ? 'vercel-blob' : 'unconfigured') : 'sqlite',
+    persistentStorageConfigured,
+  });
+});
 
 // 0.0 GET Live Menu Version for instant cross-device updates without page reload
 app.get('/api/menu-version', (req, res) => {
@@ -450,7 +556,7 @@ app.post('/api/settings', async (req, res) => {
       await dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, finalVal]);
     }
 
-    syncSeedCopy();
+    await persistDatabase();
     res.json({ success: true, message: 'Settings updated successfully in SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 settings update error:', err);
@@ -480,7 +586,7 @@ app.post('/api/categories', async (req, res) => {
       [catId, nameEn || '', nameAr || '', icon || 'utensils', Number(displayOrder) || 0]
     );
 
-    syncSeedCopy();
+    await persistDatabase();
     res.json({ success: true, id: catId });
   } catch (err) {
     console.error('SQLite 3 category save error:', err);
@@ -497,7 +603,7 @@ app.delete('/api/categories/:id', async (req, res) => {
     await dbRun('UPDATE dishes SET categoryId = "" WHERE categoryId = ?', [catId]);
     await dbRun('DELETE FROM categories WHERE id = ?', [catId]);
 
-    syncSeedCopy();
+    await persistDatabase();
     res.json({ success: true, message: 'Category deleted cleanly from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 category delete error:', err);
@@ -512,7 +618,7 @@ app.post('/api/categories/clear-all', async (req, res) => {
     await dbRun('UPDATE dishes SET categoryId = "";');
     await dbRun('DELETE FROM categories;');
 
-    syncSeedCopy();
+    await persistDatabase();
     res.json({ success: true, message: 'All categories cleared cleanly from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 clear-all categories error:', err);
@@ -576,7 +682,7 @@ app.post('/api/dishes', async (req, res) => {
       now
     ]);
 
-    syncSeedCopy();
+    await persistDatabase();
     res.json({ success: true, id: dishId, image: finalImageUrl });
   } catch (err) {
     console.error('SQLite 3 add dish error:', err);
@@ -627,7 +733,7 @@ app.put('/api/dishes/:id', async (req, res) => {
         now,
         now
       ]);
-      syncSeedCopy();
+      await persistDatabase();
       return res.json({ success: true, message: 'Dish saved cleanly in SQLite 3', id: dishId, image: finalImageUrl });
     }
 
@@ -671,7 +777,7 @@ app.put('/api/dishes/:id', async (req, res) => {
       dishId
     ]);
 
-    syncSeedCopy();
+    await persistDatabase();
     res.json({ success: true, message: 'Dish updated cleanly in SQLite 3', id: dishId, image: finalImageUrl });
   } catch (err) {
     console.error('SQLite 3 update dish error:', err);
@@ -692,7 +798,7 @@ app.delete('/api/dishes/:id', async (req, res) => {
 
     await dbRun('DELETE FROM dishes WHERE id = ?', [dishId]);
 
-    syncSeedCopy();
+    await persistDatabase();
     res.json({ success: true, message: 'Dish deleted completely from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 delete dish error:', err);
@@ -711,7 +817,7 @@ app.post('/api/dishes/clear-all', async (req, res) => {
     }
 
     await dbRun('DELETE FROM dishes;');
-    syncSeedCopy();
+    await persistDatabase();
     res.json({ success: true, message: 'All dishes and their images cleared completely from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 clear-all error:', err);
@@ -784,7 +890,7 @@ app.post('/api/reset', async (req, res) => {
       ]);
     }
 
-    syncSeedCopy();
+    await persistDatabase();
     res.json({ success: true, message: 'Database reset to clean state with 0 dishes' });
   } catch (err) {
     console.error('SQLite 3 reset error:', err);
@@ -831,7 +937,7 @@ app.post('/api/restore', async (req, res) => {
       await dbRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('isInitialized', 'true')");
     }
 
-    if (Array.isArray(categories) && categories.length > 0) {
+    if (Array.isArray(categories)) {
       await dbRun('DELETE FROM categories;');
       for (const cat of categories) {
         await dbRun('INSERT INTO categories (id, nameEn, nameAr, icon, displayOrder) VALUES (?, ?, ?, ?, ?)', [
@@ -861,7 +967,7 @@ app.post('/api/restore', async (req, res) => {
       }
     }
 
-    syncSeedCopy();
+    await persistDatabase();
     res.json({ success: true, message: 'Data restored successfully to SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 restore error:', err);

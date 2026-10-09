@@ -492,7 +492,7 @@
                 callback(uploadData.url);
                 if (setPreview) setPreview(uploadData.url);
                 setIsImageProcessing(false);
-                showToast(isAr ? 'تم رفع وحفظ صورة الوجبة بنجاح' : 'Image saved successfully');
+                showToast(isAr ? 'تم تجهيز الصورة؛ ستُحفظ نهائياً عند حفظ التعديلات' : 'Image ready; it will be stored when you save your changes');
                 return;
               }
             }
@@ -517,12 +517,15 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(settingsForm),
           });
-          if (!res.ok) throw new Error('Failed to save settings');
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || 'Failed to save settings');
+          }
           setSettings({ ...settingsForm });
           showToast(isAr ? 'تم حفظ وتحديث بيانات المطعم فورياً في قاعدة البيانات' : 'Restaurant info saved');
           if (syncChannel) syncChannel.postMessage({ type: 'SETTINGS_UPDATED', time: Date.now() });
         } catch (err) {
-          showToast(isAr ? 'حدث خطأ أثناء الحفظ' : 'Error saving settings', 'error');
+          showToast(err.message || (isAr ? 'حدث خطأ أثناء الحفظ' : 'Error saving settings'), 'error');
         }
       };
 
@@ -537,32 +540,38 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ logoUrl: '' }),
           });
-          if (!res.ok) throw new Error('Failed to delete logo');
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || 'Failed to delete logo');
+          }
           setSettings(prev => ({ ...prev, logoUrl: '' }));
           setSettingsForm(prev => ({ ...prev, logoUrl: '' }));
           if (logoFileInputRef.current) logoFileInputRef.current.value = '';
           showToast(isAr ? 'تم حذف الشعار نهائياً من قاعدة البيانات' : 'Logo deleted successfully');
           if (syncChannel) syncChannel.postMessage({ type: 'SETTINGS_UPDATED', time: Date.now() });
         } catch (err) {
-          showToast(isAr ? 'حدث خطأ أثناء حذف الشعار' : 'Error deleting logo', 'error');
+          showToast(err.message || (isAr ? 'حدث خطأ أثناء حذف الشعار' : 'Error deleting logo'), 'error');
         }
       };
 
       // Hero Background: save a single setting value immediately ('' = no background)
       const saveHeroBg = async (url, message) => {
-        setSettings(prev => ({ ...prev, heroBgUrl: url }));
-        setSettingsForm(prev => ({ ...prev, heroBgUrl: url }));
         try {
           const res = await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ heroBgUrl: url }),
           });
-          if (!res.ok) throw new Error('Failed to update background');
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || 'Failed to update background');
+          }
+          setSettings(prev => ({ ...prev, heroBgUrl: url }));
+          setSettingsForm(prev => ({ ...prev, heroBgUrl: url }));
           showToast(message);
           if (syncChannel) syncChannel.postMessage({ type: 'SETTINGS_UPDATED', time: Date.now() });
         } catch (err) {
-          showToast(isAr ? 'حدث خطأ أثناء حفظ الخلفية' : 'Error saving background', 'error');
+          showToast(err.message || (isAr ? 'حدث خطأ أثناء حفظ الخلفية' : 'Error saving background'), 'error');
         }
         if (heroBgFileInputRef.current) heroBgFileInputRef.current.value = '';
       };
@@ -677,16 +686,14 @@
       // Delete Dish completely from SQLite 3 Database
       const handleDeleteDish = async (dishId) => {
         if (window.confirm(isAr ? 'هل أنت متأكد من حذف هذه الوجبة نهائياً من قاعدة البيانات؟' : 'Permanently delete this dish from database?')) {
-          // 1. Remove immediately from local state (0ms instant response)
-          setDishes(prev => prev.filter(d => d.id !== dishId));
-          if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
-
           try {
             const res = await fetch(`/api/dishes/${dishId}`, { method: 'DELETE' });
             if (!res.ok) {
               const errData = await res.json().catch(() => ({}));
               throw new Error(errData.error || (isAr ? 'فشل حذف الوجبة من قاعدة البيانات' : 'Failed to delete dish'));
             }
+            setDishes(prev => prev.filter(d => d.id !== dishId));
+            if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
             showToast(isAr ? 'تم حذف الوجبة نهائياً من قاعدة البيانات SQLite 3' : 'Dish deleted permanently from database');
           } catch (err) {
             console.error('Delete error:', err);
@@ -703,15 +710,14 @@
           return;
         }
         if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف جميع الأطباق الحالية؟ ستصبح القائمة فارغة تماماً لتتمكن من إدخال وجباتك الحقيقية.' : 'Are you sure you want to delete ALL current dishes to start clean with real data?')) {
-          setDishes([]);
-          if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
-
           try {
             const res = await fetch('/api/dishes/clear-all', { method: 'POST' });
             if (!res.ok) {
               const errData = await res.json().catch(() => ({}));
               throw new Error(errData.error || 'Failed to clear dishes');
             }
+            setDishes([]);
+            if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
             showToast(isAr ? 'تم حذف جميع الأطباق بنجاح من قاعدة البيانات SQLite 3' : 'All dishes cleared from SQLite 3');
           } catch (err) {
             showToast(err.message || (isAr ? 'حدث خطأ في الاتصال' : 'Connection error'), 'error');
@@ -727,15 +733,22 @@
         const nextStock = !targetDish.inStock;
 
         try {
-          await fetch(`/api/dishes/${dishId}`, {
+          const res = await fetch(`/api/dishes/${dishId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...targetDish, inStock: nextStock }),
           });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || (isAr ? 'فشل تحديث حالة الوجبة' : 'Failed to update dish stock'));
+          }
           setDishes(prev => prev.map(d => d.id === dishId ? { ...d, inStock: nextStock } : d));
           showToast(`${isAr ? targetDish.nameAr : targetDish.nameEn}: ${nextStock ? (isAr ? 'متوفر' : 'In Stock') : (isAr ? 'نفذت الكمية' : 'Sold Out')}`);
           if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
-        } catch (err) { }
+        } catch (err) {
+          showToast(err.message || (isAr ? 'حدث خطأ أثناء تحديث الوجبة' : 'Error updating dish'), 'error');
+          await loadData();
+        }
       };
 
       // Add Category
@@ -751,33 +764,40 @@
         };
 
         try {
-          await fetch('/api/categories', {
+          const res = await fetch('/api/categories', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newCat),
           });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || (isAr ? 'فشل حفظ التصنيف' : 'Failed to save category'));
+          }
           setCategories(prev => [...prev, newCat]);
           setNewCategoryForm({ nameEn: '', nameAr: '', icon: 'utensils' });
           setIsCategoryModalOpen(false);
           showToast(isAr ? 'تمت إضافة التصنيف بنجاح' : 'Category added');
           if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
         } catch (err) {
-          showToast(isAr ? 'حدث خطأ أثناء الإضافة' : 'Error adding category', 'error');
+          showToast(err.message || (isAr ? 'حدث خطأ أثناء الإضافة' : 'Error adding category'), 'error');
         }
       };
 
       // Delete Category (unrestricted - user can delete any and all categories)
       const handleDeleteCategory = async (catId) => {
         if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف هذا التصنيف؟ ستبقى أطباقه معروضة ضمن "جميع التصنيفات"' : 'Delete this category? Dishes will remain under All Categories.')) {
-          setCategories(prev => prev.filter(c => c.id !== catId));
-          setDishes(prev => prev.map(d => d.categoryId === catId ? { ...d, categoryId: '' } : d));
-          if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
-
           try {
-            await fetch(`/api/categories/${catId}`, { method: 'DELETE' });
+            const res = await fetch(`/api/categories/${catId}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || (isAr ? 'فشل حذف التصنيف' : 'Failed to delete category'));
+            }
+            setCategories(prev => prev.filter(c => c.id !== catId));
+            setDishes(prev => prev.map(d => d.categoryId === catId ? { ...d, categoryId: '' } : d));
+            if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
             showToast(isAr ? 'تم حذف التصنيف بنجاح' : 'Category deleted');
           } catch (err) {
-            showToast(isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting category', 'error');
+            showToast(err.message || (isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting category'), 'error');
             await loadData();
           }
         }
@@ -790,12 +810,15 @@
           return;
         }
         if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف كافة التصنيفات؟ سيبقى فقط زر "جميع التصنيفات" على الصفحة الرئيسية' : 'Delete ALL categories? Only "All Categories" will remain on main page.')) {
-          setCategories([]);
-          setDishes(prev => prev.map(d => ({ ...d, categoryId: '' })));
-          if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
-
           try {
-            await fetch('/api/categories/clear-all', { method: 'POST' });
+            const res = await fetch('/api/categories/clear-all', { method: 'POST' });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || (isAr ? 'فشل حذف التصنيفات' : 'Failed to delete categories'));
+            }
+            setCategories([]);
+            setDishes(prev => prev.map(d => ({ ...d, categoryId: '' })));
+            if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
             showToast(isAr ? 'تم حذف جميع التصنيفات بنجاح' : 'All categories deleted');
           } catch (err) {
             showToast(err.message || (isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting categories'), 'error');
@@ -838,11 +861,15 @@
               return;
             }
             if (window.confirm(isAr ? 'هل تريد استعادة هذه النسخة وتحديث كافة الوجبات والإعدادات؟' : 'Restore backup and overwrite menu?')) {
-              await fetch('/api/restore', {
+              const res = await fetch('/api/restore', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(backup),
               });
+              if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Failed to restore backup');
+              }
               if (backup.settings) {
                 setSettings(backup.settings);
                 setSettingsForm(backup.settings);
@@ -853,7 +880,7 @@
               if (syncChannel) syncChannel.postMessage({ type: 'ALL_UPDATED', time: Date.now() });
             }
           } catch (err) {
-            alert(isAr ? 'خطأ في قراءة ملف النسخة الاحتياطية' : 'Error reading backup file');
+            alert(err.message || (isAr ? 'خطأ في استعادة النسخة الاحتياطية' : 'Error restoring backup'));
           }
         };
         reader.readAsText(file);
@@ -1349,12 +1376,20 @@
                                 setSettingsForm(prev => ({ ...prev, logoUrl: url }));
                                 setSettings(prev => ({ ...prev, logoUrl: url }));
                                 try {
-                                  await fetch('/api/settings', {
+                                  const res = await fetch('/api/settings', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ logoUrl: url }),
                                   });
-                                } catch (err) {}
+                                  if (!res.ok) {
+                                    const errData = await res.json().catch(() => ({}));
+                                    throw new Error(errData.error || 'Failed to save logo');
+                                  }
+                                  if (syncChannel) syncChannel.postMessage({ type: 'SETTINGS_UPDATED', time: Date.now() });
+                                } catch (err) {
+                                  showToast(err.message || (isAr ? 'حدث خطأ أثناء حفظ الشعار' : 'Error saving logo'), 'error');
+                                  await loadData();
+                                }
                               });
                             }
                           }}
