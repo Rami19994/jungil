@@ -1,0 +1,1977 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="scroll-smooth">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>لوحة الإدارة التنفيذية | جانغل</title>
+  <meta name="robots" content="noindex, nofollow" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/jpeg" href="logo.jpg" />
+
+  <!-- Google Fonts: Cairo (Arabic), Outfit (EN Sans), Playfair Display (Luxury) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          screens: {
+            'xs': '380px',
+          },
+          colors: {
+            jungle: {
+              950: '#03140e',
+              900: '#062319',
+              850: '#082d20',
+              800: '#0b3b2c',
+              700: '#12543f',
+              600: '#1a7356',
+              500: '#239570',
+            },
+            obsidian: {
+              950: '#05070a',
+              900: '#0d1117',
+              850: '#121720',
+              800: '#161c26',
+              700: '#212836',
+              600: '#30394a',
+            },
+            gold: {
+              50: '#fdfbf2',
+              100: '#faf5df',
+              200: '#f3e5ab',
+              300: '#eed577',
+              400: '#e2bf44',
+              500: '#d4af37',
+              600: '#b89224',
+              700: '#8e6c15',
+              800: '#644b0c',
+            }
+          },
+          fontFamily: {
+            sans: ['Outfit', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            arabic: ['Cairo', 'Tahoma', 'Arial', 'sans-serif'],
+            luxury: ['Playfair Display', 'Georgia', 'serif'],
+          },
+          boxShadow: {
+            'gold-glow': '0 0 25px rgba(212, 175, 55, 0.28)',
+            'gold-glow-sm': '0 0 12px rgba(212, 175, 55, 0.22)',
+            'emerald-glow': '0 0 35px rgba(11, 59, 44, 0.45)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18 & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel Standalone -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      background-color: #070a0e;
+      color: #e2e8f0;
+      overflow-x: hidden;
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #070a0e;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #0b3b2c;
+      border-radius: 9999px;
+      border: 1px solid rgba(212, 175, 55, 0.2);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #d4af37;
+    }
+
+    .glass-panel {
+      background: rgba(13, 23, 20, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(212, 175, 55, 0.2);
+    }
+
+    .glass-header {
+      background: rgba(6, 35, 25, 0.94);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(212, 175, 55, 0.22);
+    }
+
+    .glass-card {
+      background: linear-gradient(135deg, rgba(13, 24, 21, 0.9) 0%, rgba(9, 15, 14, 0.95) 100%);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(212, 175, 55, 0.15);
+    }
+
+    .gold-gradient-text {
+      background: linear-gradient(135deg, #fff7d6 0%, #d4af37 50%, #aa820a 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+  </style>
+</head>
+
+<body class="bg-[#070a0e] text-slate-100 antialiased selection:bg-gold-500 selection:text-black">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // Supported Image Extensions list
+    const ACCEPTED_IMAGE_TYPES = "image/*, .jpg, .jpeg, .png, .webp, .svg, .gif, .avif, .bmp, .ico, .tiff, .tif, .heic, .heif";
+
+    // --- ICONS (Lucide SVG Component Library) ---
+    const Icon = ({ name, className = "w-5 h-5", ...props }) => {
+      const icons = {
+        search: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.3-4.3"></path>
+          </svg>
+        ),
+        plus: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        ),
+        x: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M18 6 6 18"></path>
+            <path d="m6 6 12 12"></path>
+          </svg>
+        ),
+        flame: (
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" className={className} {...props}>
+            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+          </svg>
+        ),
+        utensils: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"></path>
+            <path d="M15 11v11"></path>
+            <path d="M5 2v8a2.5 2.5 0 0 0 2.5 2.5V22"></path>
+            <path d="M8 2v4"></path>
+          </svg>
+        ),
+        sparkles: (
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" className={className} {...props}>
+            <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"></path>
+          </svg>
+        ),
+        shield: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+        ),
+        trash: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M3 6h18"></path>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+          </svg>
+        ),
+        edit: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+        ),
+        globe: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+        ),
+        layers: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        ),
+        settings: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        ),
+        upload: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        ),
+        download: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+        ),
+        check: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        ),
+        arrowLeft: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        ),
+      };
+      return icons[name] || <span className={className}>•</span>;
+    };
+
+    const DEFAULT_SETTINGS = {
+      restaurantNameEn: 'Jungle',
+      restaurantNameAr: 'جانغل',
+      taglineEn: 'Rooftop & Lounge Dining Experience',
+      taglineAr: 'تجربة طعام وسهرات استثنائية على الروف توب',
+      addressEn: 'Ankawa, Main Street, Luxury Hotel',
+      addressAr: 'عنكاوة - الشارع الرئيسي - فندق luxury',
+      mapUrl: 'https://maps.app.goo.gl/xiSWgf6a2JBKpTya9',
+      logoUrl: '',
+      heroBgUrl: 'hero-bg.jpg',
+    };
+
+    function JungleAdminApp() {
+      const [lang, setLang] = useState('ar');
+      const isAr = lang === 'ar';
+
+      // Authentication state with sessionStorage persistence
+      const [isAuthenticated, setIsAuthenticated] = useState(() => {
+        return sessionStorage.getItem('jungle_admin_auth') === 'true';
+      });
+      const [adminUsername, setAdminUsername] = useState('');
+      const [adminPassword, setAdminPassword] = useState('');
+      const [loginError, setLoginError] = useState(false);
+
+      // Data States
+      const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+      const [settingsForm, setSettingsForm] = useState(DEFAULT_SETTINGS);
+      const [categories, setCategories] = useState([]);
+      const [dishes, setDishes] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
+
+      // Tabs: 'dishes' | 'settings' | 'categories'
+      const [activeTab, setActiveTab] = useState('dishes');
+
+      // Modals
+      const [isDishModalOpen, setIsDishModalOpen] = useState(false);
+      const [editingDish, setEditingDish] = useState(null);
+      const [dishForm, setDishForm] = useState({
+        nameEn: '',
+        nameAr: '',
+        categoryId: 'steaks',
+        price: 25,
+        descEn: '',
+        descAr: '',
+        image: '',
+        isChefSpecial: false,
+        isBestSeller: false,
+        isVegetarian: false,
+        isSpicy: false,
+        inStock: true,
+      });
+
+      const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+      const [newCategoryForm, setNewCategoryForm] = useState({
+        nameEn: '',
+        nameAr: '',
+        icon: 'utensils',
+      });
+
+      // Filter & Search inside Admin Dishes
+      const [dishSearch, setDishSearch] = useState('');
+      const [dishCategoryFilter, setDishCategoryFilter] = useState('all');
+      const [dishImagePreview, setDishImagePreview] = useState('');
+      const [isImageProcessing, setIsImageProcessing] = useState(false);
+
+      // Toast Notifications
+      const [toast, setToast] = useState(null);
+      const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3200);
+      };
+
+      // Refs
+      const logoFileInputRef = useRef(null);
+      const heroBgFileInputRef = useRef(null);
+      const dishImageFileInputRef = useRef(null);
+      const backupFileInputRef = useRef(null);
+
+      // Load Data from SQLite 3 Backend (Fast & Real-time directly from database)
+      const loadData = async () => {
+        try {
+          setIsLoading(true);
+          const t = Date.now();
+          const fetchOpts = {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+            },
+          };
+
+          // Wipe any stale browser cache
+          try {
+            localStorage.removeItem('jungle_cache');
+          } catch (_) {}
+
+          const [settingsRes, catsRes, dishesRes] = await Promise.all([
+            fetch(`/api/settings?t=${t}`, fetchOpts).catch(() => null),
+            fetch(`/api/categories?t=${t}`, fetchOpts).catch(() => null),
+            fetch(`/api/dishes?t=${t}`, fetchOpts).catch(() => null),
+          ]);
+
+          if (settingsRes && settingsRes.ok) {
+            const data = await settingsRes.json();
+            if (Object.keys(data).length > 0) {
+              setSettings(data);
+              setSettingsForm(data);
+            }
+          }
+
+          if (catsRes && catsRes.ok) {
+            const data = await catsRes.json();
+            if (Array.isArray(data)) setCategories(data);
+          }
+
+          if (dishesRes && dishesRes.ok) {
+            const data = await dishesRes.json();
+            if (Array.isArray(data)) setDishes(data);
+          }
+        } catch (err) {
+          console.error('Error fetching admin data from SQLite 3:', err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      // Broadcast channel for instantaneous cross-tab sync with customer menu (0ms)
+      const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('jungle_sync') : null;
+
+      useEffect(() => {
+        if (isAuthenticated) {
+          loadData();
+        }
+      }, [isAuthenticated]);
+
+      useEffect(() => {
+        document.documentElement.dir = isAr ? 'rtl' : 'ltr';
+        document.documentElement.lang = lang;
+      }, [lang, isAr]);
+
+      // Handle Login
+      const handleLogin = (e) => {
+        e.preventDefault();
+        if (adminUsername.trim() === 'admin' && adminPassword.trim() === '123456') {
+          setIsAuthenticated(true);
+          sessionStorage.setItem('jungle_admin_auth', 'true');
+          setLoginError(false);
+          setAdminPassword('');
+          showToast(isAr ? 'مرحباً بك في لوحة الإدارة التنفيذية' : 'Welcome to Executive Admin');
+        } else {
+          setLoginError(true);
+        }
+      };
+
+      // Handle Logout
+      const handleLogout = () => {
+        setIsAuthenticated(false);
+        sessionStorage.removeItem('jungle_admin_auth');
+        showToast(isAr ? 'تم تسجيل الخروج بنجاح' : 'Logged out');
+      };
+
+      // Image Processing & Optimization - Uploads to /uploads/ and links to SQLite 3
+      const handleFileUpload = async (file, callback, setPreview) => {
+        if (!file) return;
+
+        setIsImageProcessing(true);
+
+        const reader = new FileReader();
+        reader.onerror = () => {
+          setIsImageProcessing(false);
+          showToast(isAr ? 'تعذر قراءة ملف الصورة' : 'Could not read image file', 'error');
+        };
+
+        reader.onload = async (ev) => {
+          const rawData = ev.target.result;
+          let compressed = rawData;
+
+          if (file.type !== 'image/svg+xml') {
+            try {
+              compressed = await new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                  try {
+                    const maxDim = 1200;
+                    let w = img.width || 800;
+                    let h = img.height || 600;
+                    if (w > maxDim || h > maxDim) {
+                      if (w > h) {
+                        h = Math.round((h * maxDim) / w);
+                        w = maxDim;
+                      } else {
+                        w = Math.round((w * maxDim) / h);
+                        h = maxDim;
+                      }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(img, 0, 0, w, h);
+
+                    let result = canvas.toDataURL('image/webp', 0.85);
+                    if (!result || result.length < 100 || result === 'data:,') {
+                      result = canvas.toDataURL('image/jpeg', 0.85);
+                    }
+                    resolve(result || rawData);
+                  } catch (_) {
+                    resolve(rawData);
+                  }
+                };
+                img.onerror = () => resolve(rawData);
+                img.src = rawData;
+              });
+            } catch (_) {
+              compressed = rawData;
+            }
+          }
+
+          if (setPreview) setPreview(compressed);
+
+          // Upload image to server immediately to store clean image file on disk
+          try {
+            const uploadRes = await fetch('/api/upload', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ base64Data: compressed, filename: file.name }),
+            });
+            if (uploadRes.ok) {
+              const uploadData = await uploadRes.json();
+              if (uploadData.url) {
+                callback(uploadData.url);
+                if (setPreview) setPreview(uploadData.url);
+                setIsImageProcessing(false);
+                showToast(isAr ? 'تم رفع وحفظ صورة الوجبة بنجاح' : 'Image saved successfully');
+                return;
+              }
+            }
+          } catch (uploadErr) {
+            console.warn('Direct upload warning, falling back to embedded format:', uploadErr);
+          }
+
+          callback(compressed);
+          setIsImageProcessing(false);
+          showToast(isAr ? 'تم تجهيز الصورة بنجاح' : 'Image prepared successfully');
+        };
+
+        reader.readAsDataURL(file);
+      };
+
+      // Save Settings
+      const handleSaveSettings = async (e) => {
+        e.preventDefault();
+        try {
+          const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settingsForm),
+          });
+          if (!res.ok) throw new Error('Failed to save settings');
+          setSettings({ ...settingsForm });
+          showToast(isAr ? 'تم حفظ وتحديث بيانات المطعم فورياً في قاعدة البيانات' : 'Restaurant info saved');
+          if (syncChannel) syncChannel.postMessage({ type: 'SETTINGS_UPDATED', time: Date.now() });
+        } catch (err) {
+          showToast(isAr ? 'حدث خطأ أثناء الحفظ' : 'Error saving settings', 'error');
+        }
+      };
+
+      // Delete Logo
+      const handleDeleteLogo = async () => {
+        if (!window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف شعار المطعم نهائياً؟' : 'Are you sure you want to delete the logo?')) {
+          return;
+        }
+        try {
+          const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ logoUrl: '' }),
+          });
+          if (!res.ok) throw new Error('Failed to delete logo');
+          setSettings(prev => ({ ...prev, logoUrl: '' }));
+          setSettingsForm(prev => ({ ...prev, logoUrl: '' }));
+          if (logoFileInputRef.current) logoFileInputRef.current.value = '';
+          showToast(isAr ? 'تم حذف الشعار نهائياً من قاعدة البيانات' : 'Logo deleted successfully');
+          if (syncChannel) syncChannel.postMessage({ type: 'SETTINGS_UPDATED', time: Date.now() });
+        } catch (err) {
+          showToast(isAr ? 'حدث خطأ أثناء حذف الشعار' : 'Error deleting logo', 'error');
+        }
+      };
+
+      // Hero Background: save a single setting value immediately ('' = no background)
+      const saveHeroBg = async (url, message) => {
+        setSettings(prev => ({ ...prev, heroBgUrl: url }));
+        setSettingsForm(prev => ({ ...prev, heroBgUrl: url }));
+        try {
+          const res = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ heroBgUrl: url }),
+          });
+          if (!res.ok) throw new Error('Failed to update background');
+          showToast(message);
+          if (syncChannel) syncChannel.postMessage({ type: 'SETTINGS_UPDATED', time: Date.now() });
+        } catch (err) {
+          showToast(isAr ? 'حدث خطأ أثناء حفظ الخلفية' : 'Error saving background', 'error');
+        }
+        if (heroBgFileInputRef.current) heroBgFileInputRef.current.value = '';
+      };
+
+      const handleDeleteHeroBg = () => {
+        if (!window.confirm(isAr ? 'هل تريد حذف صورة الخلفية؟' : 'Delete the background image?')) return;
+        saveHeroBg('', isAr ? 'تم حذف صورة الخلفية من قاعدة البيانات' : 'Background removed');
+      };
+
+      // Dishes: Add/Edit Modal Open
+      const openAddDishModal = () => {
+        setEditingDish(null);
+        setDishForm({
+          nameEn: '',
+          nameAr: '',
+          categoryId: categories[0]?.id || 'general',
+          price: 25,
+          descEn: '',
+          descAr: '',
+          image: '',
+          isChefSpecial: false,
+          isBestSeller: false,
+          isVegetarian: false,
+          isSpicy: false,
+          inStock: true,
+        });
+        setDishImagePreview('');
+        setIsImageProcessing(false);
+        if (dishImageFileInputRef.current) dishImageFileInputRef.current.value = '';
+        setIsDishModalOpen(true);
+      };
+
+      const openEditDishModal = (dish) => {
+        setEditingDish(dish);
+        setDishForm({
+          nameEn: dish.nameEn || '',
+          nameAr: dish.nameAr || '',
+          categoryId: dish.categoryId || categories[0]?.id || 'general',
+          price: dish.price || 0,
+          descEn: dish.descEn || '',
+          descAr: dish.descAr || '',
+          image: dish.image || '',
+          isChefSpecial: Boolean(dish.isChefSpecial),
+          isBestSeller: Boolean(dish.isBestSeller),
+          isVegetarian: Boolean(dish.isVegetarian),
+          isSpicy: Boolean(dish.isSpicy),
+          inStock: Boolean(dish.inStock),
+        });
+        setDishImagePreview(dish.image || '');
+        setIsImageProcessing(false);
+        if (dishImageFileInputRef.current) dishImageFileInputRef.current.value = '';
+        setIsDishModalOpen(true);
+      };
+
+      // Save Dish directly into SQLite 3 Database
+      const handleSaveDish = async (e) => {
+        e.preventDefault();
+        if (!dishForm.nameEn.trim() || !dishForm.nameAr.trim()) {
+          alert(isAr ? 'يرجى إدخال اسم الوجبة بالعربية والإنجليزية' : 'Please enter item name in both languages');
+          return;
+        }
+
+        const finalImage = dishForm.image !== undefined ? dishForm.image : (dishImagePreview || '');
+        const dishData = {
+          ...dishForm,
+          image: finalImage,
+          price: Number(dishForm.price) || 0,
+        };
+
+        try {
+          if (editingDish) {
+            const res = await fetch(`/api/dishes/${editingDish.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...dishData, id: editingDish.id }),
+            });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || (isAr ? 'فشل تحديث الوجبة في قاعدة البيانات' : 'Failed to update dish'));
+            }
+            const updateResult = await res.json().catch(() => ({}));
+            const updatedImage = updateResult.image || finalImage;
+            setDishes(prev => prev.map(d => d.id === editingDish.id ? { ...d, ...dishData, image: updatedImage } : d));
+            showToast(isAr ? 'تم تحديث الوجبة والصورة بنجاح في قاعدة البيانات SQLite 3' : 'Dish updated in SQLite 3 database');
+          } else {
+            const newId = `dish-${Date.now()}`;
+            const res = await fetch('/api/dishes', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...dishData, id: newId }),
+            });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || (isAr ? 'فشل إضافة الوجبة في قاعدة البيانات' : 'Failed to add dish'));
+            }
+            const addResult = await res.json().catch(() => ({}));
+            const savedId = addResult.id || newId;
+            const savedImage = addResult.image || finalImage;
+            setDishes(prev => [{ ...dishData, id: savedId, image: savedImage }, ...prev]);
+            showToast(isAr ? 'تمت إضافة الوجبة وحفظها في قاعدة البيانات SQLite 3' : 'New dish added to SQLite 3 database');
+          }
+
+          setIsDishModalOpen(false);
+          if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
+        } catch (err) {
+          console.error('Save dish error:', err);
+          showToast(err.message || (isAr ? 'حدث خطأ أثناء الحفظ' : 'Error saving dish'), 'error');
+          await loadData();
+        }
+      };
+
+      // Delete Dish completely from SQLite 3 Database
+      const handleDeleteDish = async (dishId) => {
+        if (window.confirm(isAr ? 'هل أنت متأكد من حذف هذه الوجبة نهائياً من قاعدة البيانات؟' : 'Permanently delete this dish from database?')) {
+          // 1. Remove immediately from local state (0ms instant response)
+          setDishes(prev => prev.filter(d => d.id !== dishId));
+          if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
+
+          try {
+            const res = await fetch(`/api/dishes/${dishId}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || (isAr ? 'فشل حذف الوجبة من قاعدة البيانات' : 'Failed to delete dish'));
+            }
+            showToast(isAr ? 'تم حذف الوجبة نهائياً من قاعدة البيانات SQLite 3' : 'Dish deleted permanently from database');
+          } catch (err) {
+            console.error('Delete error:', err);
+            showToast(err.message || (isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting dish'), 'error');
+            await loadData();
+          }
+        }
+      };
+
+      // Clear All Dishes to start completely fresh with real data in SQLite 3
+      const handleClearAllDishes = async () => {
+        if (dishes.length === 0) {
+          alert(isAr ? 'لا توجد أي أطباق حالياً لحذفها' : 'No dishes to delete');
+          return;
+        }
+        if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف جميع الأطباق الحالية؟ ستصبح القائمة فارغة تماماً لتتمكن من إدخال وجباتك الحقيقية.' : 'Are you sure you want to delete ALL current dishes to start clean with real data?')) {
+          setDishes([]);
+          if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
+
+          try {
+            const res = await fetch('/api/dishes/clear-all', { method: 'POST' });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || 'Failed to clear dishes');
+            }
+            showToast(isAr ? 'تم حذف جميع الأطباق بنجاح من قاعدة البيانات SQLite 3' : 'All dishes cleared from SQLite 3');
+          } catch (err) {
+            showToast(err.message || (isAr ? 'حدث خطأ في الاتصال' : 'Connection error'), 'error');
+            await loadData();
+          }
+        }
+      };
+
+      // Toggle Stock
+      const handleToggleStock = async (dishId) => {
+        const targetDish = dishes.find(d => d.id === dishId);
+        if (!targetDish) return;
+        const nextStock = !targetDish.inStock;
+
+        try {
+          const res = await fetch(`/api/dishes/${encodeURIComponent(dishId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...targetDish, inStock: nextStock }),
+          });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || (isAr ? 'فشل تحديث حالة الوجبة' : 'Failed to update dish status'));
+          }
+          setDishes(prev => prev.map(d => d.id === dishId ? { ...d, inStock: nextStock } : d));
+          showToast(`${isAr ? targetDish.nameAr : targetDish.nameEn}: ${nextStock ? (isAr ? 'متوفر' : 'In Stock') : (isAr ? 'نفذت الكمية' : 'Sold Out')}`);
+          if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
+        } catch (err) { }
+      };
+
+      // Add Category
+      const handleAddCategory = async (e) => {
+        e.preventDefault();
+        if (!newCategoryForm.nameEn.trim() || !newCategoryForm.nameAr.trim()) return;
+        const newCat = {
+          id: `cat-${Date.now()}`,
+          nameEn: newCategoryForm.nameEn.trim(),
+          nameAr: newCategoryForm.nameAr.trim(),
+          icon: newCategoryForm.icon || 'utensils',
+          displayOrder: categories.length + 1,
+        };
+
+        try {
+          const res = await fetch('/api/categories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newCat),
+          });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || (isAr ? 'فشل حفظ التصنيف' : 'Failed to save category'));
+          }
+          setCategories(prev => [...prev, newCat]);
+          setNewCategoryForm({ nameEn: '', nameAr: '', icon: 'utensils' });
+          setIsCategoryModalOpen(false);
+          showToast(isAr ? 'تمت إضافة التصنيف بنجاح' : 'Category added');
+          if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
+        } catch (err) {
+          showToast(isAr ? 'حدث خطأ أثناء الإضافة' : 'Error adding category', 'error');
+        }
+      };
+
+      // Delete Category (unrestricted - user can delete any and all categories)
+      const handleDeleteCategory = async (catId) => {
+        if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف هذا التصنيف؟ ستبقى أطباقه معروضة ضمن "جميع التصنيفات"' : 'Delete this category? Dishes will remain under All Categories.')) {
+          setCategories(prev => prev.filter(c => c.id !== catId));
+          setDishes(prev => prev.map(d => d.categoryId === catId ? { ...d, categoryId: '' } : d));
+          if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
+
+          try {
+            const res = await fetch(`/api/categories/${encodeURIComponent(catId)}`, { method: 'DELETE' });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || (isAr ? 'فشل حذف التصنيف' : 'Failed to delete category'));
+            }
+            showToast(isAr ? 'تم حذف التصنيف بنجاح' : 'Category deleted');
+          } catch (err) {
+            showToast(isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting category', 'error');
+            await loadData();
+          }
+        }
+      };
+
+      // Clear All Categories completely
+      const handleClearAllCategories = async () => {
+        if (categories.length === 0) {
+          alert(isAr ? 'لا توجد أي تصنيفات حالياً لحذفها' : 'No categories to delete');
+          return;
+        }
+        if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف كافة التصنيفات؟ سيبقى فقط زر "جميع التصنيفات" على الصفحة الرئيسية' : 'Delete ALL categories? Only "All Categories" will remain on main page.')) {
+          setCategories([]);
+          setDishes(prev => prev.map(d => ({ ...d, categoryId: '' })));
+          if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
+
+          try {
+            const res = await fetch('/api/categories/clear-all', { method: 'POST' });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || (isAr ? 'فشل حذف التصنيفات' : 'Failed to clear categories'));
+            }
+            showToast(isAr ? 'تم حذف جميع التصنيفات بنجاح' : 'All categories deleted');
+          } catch (err) {
+            showToast(err.message || (isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting categories'), 'error');
+            await loadData();
+          }
+        }
+      };
+
+      // Backup Export JSON
+      const handleExportBackup = () => {
+        const backupData = {
+          exportedAt: new Date().toISOString(),
+          restaurant: settings.restaurantNameAr || 'Jungle Lounge',
+          settings,
+          categories,
+          dishes,
+        };
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `jungle_lounge_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast(isAr ? 'تم تنزيل النسخة الاحتياطية بنجاح' : 'Backup downloaded');
+      };
+
+      // Backup Restore JSON
+      const handleImportBackup = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          try {
+            const backup = JSON.parse(ev.target.result);
+            if (!backup.settings && !backup.categories && !backup.dishes) {
+              alert(isAr ? 'ملف النسخة الاحتياطية غير صالح' : 'Invalid backup file');
+              return;
+            }
+            if (window.confirm(isAr ? 'هل تريد استعادة هذه النسخة وتحديث كافة الوجبات والإعدادات؟' : 'Restore backup and overwrite menu?')) {
+              const res = await fetch('/api/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(backup),
+              });
+              if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || (isAr ? 'فشل استعادة النسخة الاحتياطية' : 'Failed to restore backup'));
+              }
+              if (backup.settings) {
+                setSettings(backup.settings);
+                setSettingsForm(backup.settings);
+              }
+              if (Array.isArray(backup.categories)) setCategories(backup.categories);
+              if (Array.isArray(backup.dishes)) setDishes(backup.dishes);
+              showToast(isAr ? 'تمت استعادة البيانات بنجاح' : 'Backup restored');
+              if (syncChannel) syncChannel.postMessage({ type: 'ALL_UPDATED', time: Date.now() });
+            }
+          } catch (err) {
+            alert(isAr ? 'تعذر استعادة النسخة الاحتياطية' : 'Could not restore backup');
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      // Filtered Dishes in Admin
+      const filteredAdminDishes = useMemo(() => {
+        return dishes.filter(d => {
+          if (dishCategoryFilter !== 'all' && d.categoryId !== dishCategoryFilter) return false;
+          if (dishSearch.trim()) {
+            const q = dishSearch.toLowerCase().trim();
+            const matchNameEn = d.nameEn?.toLowerCase().includes(q);
+            const matchNameAr = d.nameAr?.includes(q);
+            if (!matchNameEn && !matchNameAr) return false;
+          }
+          return true;
+        });
+      }, [dishes, dishCategoryFilter, dishSearch]);
+
+      // If not authenticated, render Login Screen
+      if (!isAuthenticated) {
+        return (
+          <div className={`min-h-screen flex items-center justify-center p-4 bg-[#070a0e] ${isAr ? 'font-arabic' : 'font-sans'}`}>
+            <div className="max-w-md w-full glass-panel bg-jungle-950/95 border border-gold-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl relative">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 rounded-2xl bg-gold-500/10 border border-gold-500/30 flex items-center justify-center mx-auto mb-3 text-gold-400 shadow-gold-glow-sm">
+                  <Icon name="shield" className="w-8 h-8" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-100 gold-gradient-text">
+                  {isAr ? 'لوحة الإدارة التنفيذية' : 'Executive Admin Portal'}
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  {isAr ? 'أدخل اسم المستخدم وكلمة المرور للمتابعة' : 'Enter admin credentials to continue'}
+                </p>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                {loginError && (
+                  <div className="p-3 rounded-xl bg-red-950/80 border border-red-500/40 text-red-300 text-xs text-center font-bold">
+                    {isAr ? 'اسم المستخدم أو كلمة المرور غير صحيحة' : 'Invalid username or password'}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">{isAr ? 'اسم المستخدم' : 'Username'}</label>
+                  <input
+                    type="text"
+                    value={adminUsername}
+                    onChange={(e) => setAdminUsername(e.target.value)}
+                    placeholder="admin"
+                    required
+                    className="w-full bg-jungle-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-gold-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">{isAr ? 'كلمة المرور' : 'Password'}</label>
+                  <input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="••••••"
+                    required
+                    className="w-full bg-jungle-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-gold-400"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-400 text-obsidian-950 font-bold text-sm shadow-gold-glow transition active:scale-95 mt-2"
+                >
+                  {isAr ? 'تسجيل الدخول' : 'Sign In'}
+                </button>
+
+                <div className="text-center pt-2">
+                  <a
+                    href="/"
+                    className="text-xs text-slate-400 hover:text-gold-300 transition inline-flex items-center gap-1"
+                  >
+                    <span>←</span>
+                    <span>{isAr ? 'العودة إلى قائمة الزبائن' : 'Back to Customer Menu'}</span>
+                  </a>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      }
+
+      // Authenticated Admin Dashboard
+      return (
+        <div className={`min-h-screen bg-[#070a0e] text-slate-100 ${isAr ? 'font-arabic' : 'font-sans'}`}>
+          {/* Toast */}
+          {toast && (
+            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-4 w-full max-w-sm pointer-events-none">
+              <div className="glass-panel px-4 py-2.5 rounded-full border border-gold-500/60 shadow-gold-glow flex items-center justify-center space-x-2.5 rtl:space-x-reverse bg-jungle-950/95 text-gold-300 text-xs sm:text-sm font-semibold text-center animate-bounce">
+                <Icon name="sparkles" className="w-4 h-4 text-gold-400 flex-shrink-0 animate-spin" />
+                <span className="truncate">{toast.message}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Admin Header Navbar */}
+          <header className="sticky top-0 z-40 glass-header border-b border-gold-500/20 shadow-2xl">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center space-x-3 rtl:space-x-reverse">
+                {settings.logoUrl ? (
+                  <img
+                    src={settings.logoUrl}
+                    alt="Logo"
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-gold-500/70 object-cover shadow-gold-glow"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-jungle-900 border border-gold-500/30 flex items-center justify-center text-gold-400 text-xs font-bold">
+                    JL
+                  </div>
+                )}
+                <div>
+                  <h1 className="text-sm sm:text-base font-black tracking-wide text-slate-100 uppercase">
+                    {isAr ? settings.restaurantNameAr : settings.restaurantNameEn}
+                  </h1>
+                  <span className="text-[10px] text-emerald-400 font-semibold block flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    {isAr ? 'لوحة التحكم المستقلة' : 'Admin Panel Online'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                <a
+                  href="/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 rounded-xl bg-jungle-900/90 hover:bg-gold-500 hover:text-black text-slate-200 border border-gold-500/30 text-xs font-semibold transition flex items-center space-x-1 rtl:space-x-reverse"
+                >
+                  <span>👁️</span>
+                  <span className="hidden sm:inline">{isAr ? 'معاينة القائمة' : 'Preview Menu'}</span>
+                </a>
+
+                <button
+                  onClick={() => setLang(prev => prev === 'en' ? 'ar' : 'en')}
+                  className="px-2.5 py-1.5 rounded-xl bg-jungle-900/90 text-gold-300 border border-gold-500/30 text-xs font-bold transition flex items-center space-x-1 rtl:space-x-reverse"
+                >
+                  <Icon name="globe" className="w-3.5 h-3.5" />
+                  <span>{lang === 'en' ? 'العربية' : 'EN'}</span>
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1.5 rounded-xl bg-red-950/80 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/40 text-xs font-bold transition"
+                >
+                  {isAr ? 'خروج' : 'Log Out'}
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Container */}
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+            {/* Metric Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="glass-card rounded-2xl p-4 border border-gold-500/20">
+                <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                  <span>{isAr ? 'إجمالي الوجبات' : 'Total Dishes'}</span>
+                  <Icon name="utensils" className="w-4 h-4 text-gold-400" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-black text-slate-100">{dishes.length}</div>
+              </div>
+
+              <div className="glass-card rounded-2xl p-4 border border-gold-500/20">
+                <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                  <span>{isAr ? 'التصنيفات' : 'Categories'}</span>
+                  <Icon name="layers" className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-black text-slate-100">{categories.length}</div>
+              </div>
+
+              <div className="glass-card rounded-2xl p-4 border border-gold-500/20">
+                <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                  <span>{isAr ? 'غير متوفر' : 'Sold Out'}</span>
+                  <Icon name="flame" className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="text-2xl sm:text-3xl font-black text-amber-300">
+                  {dishes.filter(d => !d.inStock).length}
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Tabs */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-2 rtl:space-x-reverse bg-jungle-950 p-1.5 rounded-xl border border-gold-500/20 overflow-x-auto">
+                <button
+                  onClick={() => setActiveTab('dishes')}
+                  className={`px-3.5 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex-shrink-0 ${activeTab === 'dishes' ? 'bg-gold-500 text-obsidian-950 shadow' : 'text-slate-300'}`}
+                >
+                  {isAr ? 'إدارة الوجبات' : 'Dishes'} ({dishes.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className={`px-3.5 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse flex-shrink-0 ${activeTab === 'settings' ? 'bg-gold-500 text-obsidian-950 shadow' : 'text-slate-300'}`}
+                >
+                  <Icon name="settings" className="w-3.5 h-3.5" />
+                  <span>{isAr ? 'بيانات وهوية المطعم' : 'Restaurant Info'}</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('categories')}
+                  className={`px-3.5 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex-shrink-0 ${activeTab === 'categories' ? 'bg-gold-500 text-obsidian-950 shadow' : 'text-slate-300'}`}
+                >
+                  {isAr ? 'التصنيفات' : 'Categories'} ({categories.length})
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {activeTab === 'dishes' && (
+                  <>
+                    {dishes.length > 0 && (
+                      <button
+                        onClick={handleClearAllDishes}
+                        className="px-3.5 py-2.5 rounded-xl bg-red-950/80 hover:bg-red-700 text-red-200 border border-red-500/40 font-bold text-xs shadow transition flex items-center space-x-1.5 rtl:space-x-reverse active:scale-95"
+                        title={isAr ? 'حذف كافة الأطباق للبدء ببيانات حقيقية' : 'Clear all current dishes'}
+                      >
+                        <Icon name="trash" className="w-3.5 h-3.5" />
+                        <span>{isAr ? 'حذف كافة الأطباق (بدء جديد)' : 'Clear All Dishes'}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={openAddDishModal}
+                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-400 text-obsidian-950 font-bold text-xs sm:text-sm shadow-gold-glow flex items-center justify-center space-x-1.5 rtl:space-x-reverse active:scale-95 transition"
+                    >
+                      <Icon name="plus" className="w-4 h-4" />
+                      <span>{isAr ? '+ إضافة وجبة جديدة' : '+ Add New Dish'}</span>
+                    </button>
+                  </>
+                )}
+                {activeTab === 'categories' && (
+                  <div className="flex items-center gap-2">
+                    {categories.length > 0 && (
+                      <button
+                        onClick={handleClearAllCategories}
+                        className="px-3.5 py-2.5 rounded-xl bg-red-950/80 hover:bg-red-700 text-red-200 border border-red-500/40 font-bold text-xs shadow transition flex items-center space-x-1.5 rtl:space-x-reverse active:scale-95"
+                        title={isAr ? 'حذف كافة التصنيفات والإبقاء على جميع الأصناف فقط' : 'Clear all categories'}
+                      >
+                        <Icon name="trash" className="w-3.5 h-3.5" />
+                        <span>{isAr ? 'حذف كافة التصنيفات' : 'Clear All Categories'}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setIsCategoryModalOpen(true)}
+                      className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-jungle-600 text-white font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 rtl:space-x-reverse active:scale-95 transition"
+                    >
+                      <Icon name="plus" className="w-4 h-4" />
+                      <span>{isAr ? '+ إضافة تصنيف' : '+ Add Category'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* TAB 1: DISHES MANAGEMENT */}
+            {activeTab === 'dishes' && (
+              <div className="space-y-4">
+                {/* Search & Category Filter */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={dishSearch}
+                      onChange={(e) => setDishSearch(e.target.value)}
+                      placeholder={isAr ? 'ابحث في الوجبات...' : 'Search dishes...'}
+                      className="w-full bg-jungle-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-gold-400"
+                    />
+                  </div>
+                  <select
+                    value={dishCategoryFilter}
+                    onChange={(e) => setDishCategoryFilter(e.target.value)}
+                    className="bg-jungle-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-400"
+                  >
+                    <option value="all">{isAr ? 'جميع التصنيفات' : 'All Categories'}</option>
+                    {categories.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {isAr ? c.nameAr : c.nameEn}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Mobile Cards View */}
+                <div className="md:hidden space-y-3">
+                  {filteredAdminDishes.map((dish) => {
+                    const catObj = categories.find(c => c.id === dish.categoryId);
+                    return (
+                      <div key={dish.id} className="glass-card rounded-xl p-3.5 border border-gold-500/20 flex gap-3">
+                        {dish.image ? (
+                          <img
+                            src={dish.image}
+                            alt={dish.nameEn}
+                            className="w-16 h-16 rounded-lg object-cover border border-gold-500/30 flex-shrink-0"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className={`${dish.image ? 'hidden' : 'flex'} w-16 h-16 rounded-lg bg-jungle-900 border border-gold-500/20 items-center justify-center text-gold-400/60 flex-shrink-0`}>
+                          <Icon name="utensils" className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="font-bold text-xs sm:text-sm text-slate-100 truncate">
+                              {isAr ? dish.nameAr : dish.nameEn}
+                            </h4>
+                            <span className="font-black text-gold-300 text-xs sm:text-sm flex-shrink-0">
+                              {dish.price}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gold-400/80 truncate">
+                            {isAr ? dish.nameEn : dish.nameAr}
+                          </p>
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800">
+                            <button
+                              onClick={() => handleToggleStock(dish.id)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border ${dish.inStock ? 'bg-emerald-950 text-emerald-300 border-emerald-500/40' : 'bg-red-950 text-red-300 border-red-500/40'}`}
+                            >
+                              {dish.inStock ? (isAr ? 'متوفر' : 'In Stock') : (isAr ? 'نفذت الكمية' : 'Sold Out')}
+                            </button>
+                            <div className="flex items-center space-x-1.5 rtl:space-x-reverse">
+                              <button
+                                onClick={() => openEditDishModal(dish)}
+                                className="p-1.5 rounded bg-jungle-800 text-slate-300 hover:text-gold-300"
+                                title="تعديل"
+                              >
+                                <Icon name="edit" className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteDish(dish.id)}
+                                className="p-1.5 rounded bg-red-950 text-red-300 hover:text-white"
+                                title="حذف نهائي"
+                              >
+                                <Icon name="trash" className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden md:block glass-panel rounded-2xl overflow-hidden border border-gold-500/20 shadow-xl">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left rtl:text-right text-xs">
+                      <thead className="bg-jungle-950/80 text-gold-300 font-bold uppercase tracking-wider border-b border-gold-500/20">
+                        <tr>
+                          <th className="p-4">{isAr ? 'الوجبة والصورة' : 'Item & Photo'}</th>
+                          <th className="p-4">{isAr ? 'التصنيف' : 'Category'}</th>
+                          <th className="p-4">{isAr ? 'السعر' : 'Price'}</th>
+                          <th className="p-4">{isAr ? 'الشارات' : 'Badges'}</th>
+                          <th className="p-4">{isAr ? 'حالة التوفر' : 'Stock'}</th>
+                          <th className="p-4 text-center">{isAr ? 'الإجراءات' : 'Actions'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/80">
+                        {filteredAdminDishes.map((dish) => {
+                          const catObj = categories.find(c => c.id === dish.categoryId);
+                          return (
+                            <tr key={dish.id} className="hover:bg-jungle-900/40 transition">
+                              <td className="p-4">
+                                <div className="flex items-center space-x-3 rtl:space-x-reverse">
+                                  {dish.image ? (
+                                    <img
+                                      src={dish.image}
+                                      alt={dish.nameEn}
+                                      className="w-12 h-12 rounded-lg object-cover border border-gold-500/30 flex-shrink-0"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div className={`${dish.image ? 'hidden' : 'flex'} w-12 h-12 rounded-lg bg-jungle-900 border border-gold-500/20 items-center justify-center text-gold-400/60 flex-shrink-0 text-xs`}>
+                                    <Icon name="utensils" className="w-5 h-5" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-slate-100 text-sm">{dish.nameAr}</div>
+                                    <div className="text-gold-400 text-xs">{dish.nameEn}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-4 text-slate-300 font-medium">
+                                <span className="bg-jungle-900 px-2.5 py-1 rounded-md border border-emerald-500/20">
+                                  {isAr ? (catObj?.nameAr || dish.categoryId) : (catObj?.nameEn || dish.categoryId)}
+                                </span>
+                              </td>
+                              <td className="p-4 font-black text-gold-300 text-sm">
+                                {dish.price}
+                              </td>
+                              <td className="p-4">
+                                <div className="flex flex-wrap gap-1">
+                                  {dish.isChefSpecial && <span className="px-1.5 py-0.5 rounded bg-gold-500/20 text-gold-300 text-[10px]">★ شيف</span>}
+                                  {dish.isBestSeller && <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px]">🔥 رائج</span>}
+                                  {dish.isVegetarian && <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px]">🌿 نباتي</span>}
+                                  {dish.isSpicy && <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 text-[10px]">🌶️ حار</span>}
+                                </div>
+                              </td>
+                              <td className="p-4">
+                                <button
+                                  onClick={() => handleToggleStock(dish.id)}
+                                  className={`px-3 py-1 rounded-full text-[11px] font-bold border transition ${dish.inStock ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40 hover:bg-red-950/80 hover:text-red-300' : 'bg-red-950/80 text-red-300 border-red-500/40 hover:bg-emerald-950/80 hover:text-emerald-300'}`}
+                                >
+                                  {dish.inStock ? (isAr ? '✓ متوفر' : '✓ In Stock') : (isAr ? '✗ نفذت الكمية' : '✗ Sold Out')}
+                                </button>
+                              </td>
+                              <td className="p-4 text-center">
+                                <div className="flex items-center justify-center space-x-2 rtl:space-x-reverse">
+                                  <button
+                                    onClick={() => openEditDishModal(dish)}
+                                    className="p-1.5 rounded-lg bg-jungle-800 hover:bg-gold-500 hover:text-black text-slate-300 transition"
+                                    title="تعديل"
+                                  >
+                                    <Icon name="edit" className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteDish(dish.id)}
+                                    className="p-1.5 rounded-lg bg-red-950 hover:bg-red-600 text-red-300 hover:text-white transition"
+                                    title="حذف نهائي"
+                                  >
+                                    <Icon name="trash" className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: RESTAURANT PROFILE & DETAILS */}
+            {activeTab === 'settings' && (
+              <div className="glass-panel rounded-2xl p-5 sm:p-8 border border-gold-500/30 max-w-4xl mx-auto">
+                <h3 className="text-lg sm:text-xl font-bold text-slate-100 gold-gradient-text mb-4">
+                  {isAr ? 'تعديل بيانات المطعم (تظهر للزبون مباشرة)' : 'Edit Restaurant Profile & Brand Details'}
+                </h3>
+
+                <form onSubmit={handleSaveSettings} className="space-y-4 text-xs sm:text-sm">
+                  {/* Logo Section */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-jungle-900/60 border border-gold-500/20">
+                    <label className="block font-bold text-gold-300 mb-3 text-sm">
+                      {isAr ? 'شعار المطعم (رفع مباشر من جهازك - بدون روابط)' : 'Restaurant Logo (Upload directly from device)'}
+                    </label>
+                    <div className="flex flex-col sm:flex-row items-center gap-5">
+                      <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                        <div className="relative group">
+                          {settingsForm.logoUrl ? (
+                            <img
+                              src={settingsForm.logoUrl}
+                              alt="Logo Preview"
+                              className="w-24 h-24 rounded-full border-2 border-gold-500 object-cover shadow-gold-glow flex-shrink-0"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <div className="w-24 h-24 rounded-full border-2 border-dashed border-slate-600 bg-jungle-950 flex flex-col items-center justify-center text-slate-400 text-xs">
+                              <Icon name="layers" className="w-7 h-7 text-slate-500 mb-1 opacity-50" />
+                              <span>{isAr ? 'بدون شعار' : 'No Logo'}</span>
+                            </div>
+                          )}
+                          {settingsForm.logoUrl && (
+                            <button
+                              type="button"
+                              onClick={handleDeleteLogo}
+                              className="absolute -top-1 -right-1 rtl:-right-auto rtl:-left-1 p-2 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-xl border border-red-300 transition active:scale-95"
+                              title={isAr ? 'حذف الشعار' : 'Delete Logo'}
+                            >
+                              <Icon name="trash" className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex-1 w-full space-y-3 text-center sm:text-start rtl:sm:text-right">
+                        <input
+                          ref={logoFileInputRef}
+                          type="file"
+                          accept={ACCEPTED_IMAGE_TYPES}
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              handleFileUpload(file, async (url) => {
+                                setSettingsForm(prev => ({ ...prev, logoUrl: url }));
+                                setSettings(prev => ({ ...prev, logoUrl: url }));
+                                try {
+                                  await fetch('/api/settings', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ logoUrl: url }),
+                                  });
+                                } catch (err) {}
+                              });
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => logoFileInputRef.current.click()}
+                            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-400 text-obsidian-950 font-bold text-xs sm:text-sm shadow-gold-glow-sm transition flex items-center space-x-1.5 rtl:space-x-reverse active:scale-95"
+                          >
+                            <Icon name="upload" className="w-4 h-4" />
+                            <span>{isAr ? 'رفع شعار جديد من جهازك' : 'Upload Logo from Device'}</span>
+                          </button>
+
+                          {settingsForm.logoUrl && (
+                            <button
+                              type="button"
+                              onClick={handleDeleteLogo}
+                              className="px-4 py-2.5 rounded-xl bg-red-950/80 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/50 text-xs sm:text-sm font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse shadow active:scale-95"
+                              title={isAr ? 'حذف الشعار نهائياً' : 'Delete Logo'}
+                            >
+                              <Icon name="trash" className="w-4 h-4" />
+                              <span>{isAr ? 'حذف اللوغو' : 'Delete Logo'}</span>
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400">
+                          {isAr ? 'يتم رفع الشعار مباشرة من ملفات جهازك • يدعم جميع الصيغ (JPG, PNG, WEBP, SVG, GIF, AVIF, HEIC)' : 'Uploaded directly from your device • Supports all image extensions'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Hero Background Section */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-jungle-900/60 border border-gold-500/20">
+                    <label className="block font-bold text-gold-300 mb-3 text-sm">
+                      {isAr ? 'صورة الخلفية أعلى الصفحة (تغيير أو حذف)' : 'Hero Background Image (change or remove)'}
+                    </label>
+                    <div className="flex flex-col sm:flex-row items-center gap-5">
+                      <div className="w-full sm:w-56 aspect-video rounded-xl overflow-hidden border-2 border-gold-500/40 bg-jungle-950 flex items-center justify-center flex-shrink-0">
+                        {settingsForm.heroBgUrl ? (
+                          <img src={settingsForm.heroBgUrl} alt="Hero Background" className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                        ) : (
+                          <span className="text-xs text-slate-500">{isAr ? 'بدون خلفية' : 'No background'}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 w-full space-y-3 text-center sm:text-start rtl:sm:text-right">
+                        <input
+                          ref={heroBgFileInputRef}
+                          type="file"
+                          accept={ACCEPTED_IMAGE_TYPES}
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) handleFileUpload(file, (url) => saveHeroBg(url, isAr ? 'تم تغيير صورة الخلفية' : 'Background updated'));
+                          }}
+                          className="hidden"
+                        />
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => heroBgFileInputRef.current.click()}
+                            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-400 text-obsidian-950 font-bold text-xs sm:text-sm shadow-gold-glow-sm transition flex items-center space-x-1.5 rtl:space-x-reverse active:scale-95"
+                          >
+                            <Icon name="upload" className="w-4 h-4" />
+                            <span>{isAr ? 'تغيير الخلفية من جهازك' : 'Change Background'}</span>
+                          </button>
+                          {settingsForm.heroBgUrl && (
+                            <button
+                              type="button"
+                              onClick={handleDeleteHeroBg}
+                              className="px-4 py-2.5 rounded-xl bg-red-950/80 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/50 text-xs sm:text-sm font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse shadow active:scale-95"
+                            >
+                              <Icon name="trash" className="w-4 h-4" />
+                              <span>{isAr ? 'حذف الخلفية' : 'Remove Background'}</span>
+                            </button>
+                          )}
+                          {settingsForm.heroBgUrl !== 'hero-bg.jpg' && (
+                            <button
+                              type="button"
+                              onClick={() => saveHeroBg('hero-bg.jpg', isAr ? 'تمت استعادة الخلفية الأصلية' : 'Default background restored')}
+                              className="px-4 py-2.5 rounded-xl bg-jungle-800 hover:bg-jungle-700 text-slate-200 border border-emerald-500/30 text-xs sm:text-sm font-semibold transition active:scale-95"
+                            >
+                              {isAr ? 'استعادة الخلفية الأصلية' : 'Restore Default'}
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400">
+                          {isAr ? 'يتم الحفظ فوراً ويظهر للزبون مباشرة' : 'Saved instantly and shown to customers right away'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Names */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1">
+                        {isAr ? 'اسم المطعم (بالعربية)' : 'Restaurant Name (Arabic)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={settingsForm.restaurantNameAr}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, restaurantNameAr: e.target.value })}
+                        required
+                        dir="rtl"
+                        className="w-full bg-jungle-950 border border-slate-700 rounded-xl p-2.5 text-white font-arabic focus:outline-none focus:border-gold-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1">
+                        {isAr ? 'اسم المطعم (بالإنكليزية)' : 'Restaurant Name (English)'}
+                      </label>
+                      <input
+                        type="text"
+                        value={settingsForm.restaurantNameEn}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, restaurantNameEn: e.target.value })}
+                        required
+                        dir="ltr"
+                        className="w-full bg-jungle-950 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Address */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1">
+                        {isAr ? 'عنوان المطعم بالعربية (يظهر للزبون بجانب الشعار بنفس الطريقة المكتوبة هنا)' : 'Address Arabic'}
+                      </label>
+                      <textarea
+                        rows="2"
+                        value={settingsForm.addressAr}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, addressAr: e.target.value })}
+                        dir="rtl"
+                        placeholder="اكتب عنوان المطعم هنا كما ترغب أن يظهر للزبون..."
+                        className="w-full bg-jungle-950 border border-slate-700 rounded-xl p-2.5 text-white font-arabic focus:outline-none focus:border-gold-400 resize-y"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1">
+                        {isAr ? 'عنوان المطعم بالإنكليزية' : 'Address English'}
+                      </label>
+                      <textarea
+                        rows="2"
+                        value={settingsForm.addressEn}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, addressEn: e.target.value })}
+                        dir="ltr"
+                        placeholder="Write restaurant address here exactly as it should appear..."
+                        className="w-full bg-jungle-950 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400 resize-y"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Google Maps Link */}
+                  <div>
+                    <label className="block font-semibold text-slate-300 mb-1">
+                      {isAr ? 'رابط الموقع على خرائط غوغل (يفتح عند الضغط على العنوان أعلى الصفحة)' : 'Google Maps Link (opens when the address is tapped)'}
+                    </label>
+                    <input
+                      type="url"
+                      value={settingsForm.mapUrl || ''}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, mapUrl: e.target.value })}
+                      dir="ltr"
+                      placeholder="https://maps.app.goo.gl/..."
+                      className="w-full bg-jungle-950 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400"
+                    />
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-800 flex justify-end">
+                    <button
+                      type="submit"
+                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-400 text-obsidian-950 font-bold shadow-gold-glow transition active:scale-95"
+                    >
+                      {isAr ? 'حفظ وتحديث بيانات المطعم فورياً' : 'Save Restaurant Info'}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Backup & Restore Panel */}
+                <div className="mt-8 pt-6 border-t border-slate-800">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-jungle-900/50 border border-gold-500/20">
+                    <div>
+                      <h4 className="font-bold text-slate-100 text-sm flex items-center gap-2">
+                        <Icon name="layers" className="w-4 h-4 text-gold-400" />
+                        <span>{isAr ? 'النسخ الاحتياطي واستعادة البيانات' : 'Data Backup & Restore'}</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-1 max-w-md">
+                        {isAr ? 'احفظ نسخة من كافة الوجبات والإعدادات والأسعار بصيغة JSON على جهازك أو استعدها في أي وقت بنقرة واحدة' : 'Download a full backup of all dishes, categories, and settings, or restore from a backup file'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        ref={backupFileInputRef}
+                        type="file"
+                        accept=".json,application/json"
+                        onChange={handleImportBackup}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleExportBackup}
+                        className="px-3.5 py-2 rounded-xl bg-jungle-800 hover:bg-gold-500 hover:text-black text-slate-200 border border-gold-500/30 text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse"
+                      >
+                        <Icon name="download" className="w-3.5 h-3.5" />
+                        <span>{isAr ? 'تصدير نسخة احتياطية' : 'Export Backup'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => backupFileInputRef.current.click()}
+                        className="px-3.5 py-2 rounded-xl bg-emerald-950/80 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse"
+                      >
+                        <Icon name="upload" className="w-3.5 h-3.5" />
+                        <span>{isAr ? 'استعادة نسخة احتياطية' : 'Restore Backup'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: CATEGORIES MANAGEMENT */}
+            {activeTab === 'categories' && (
+              categories.length === 0 ? (
+                <div className="text-center py-16 glass-panel rounded-2xl max-w-md mx-auto p-8 border border-gold-500/20">
+                  <Icon name="layers" className="w-12 h-12 text-gold-400/60 mx-auto mb-3" />
+                  <p className="text-slate-200 font-bold mb-1">{isAr ? 'تم حذف كافة التصنيفات' : 'All Categories Deleted'}</p>
+                  <p className="text-xs text-slate-400 mb-4">{isAr ? 'في صفحة المنيو للزبائن، يظهر الآن فقط زر "جميع التصنيفات" لكافة الأطباق.' : 'On the customer menu, only "All Categories" remains active.'}</p>
+                  <button
+                    onClick={() => setIsCategoryModalOpen(true)}
+                    className="px-5 py-2.5 rounded-xl bg-gold-500 text-obsidian-950 font-bold text-xs shadow-gold-glow hover:bg-gold-400 transition"
+                  >
+                    {isAr ? '+ إضافة تصنيف جديد' : '+ Add New Category'}
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {categories.map((cat) => {
+                    const catDishesCount = dishes.filter(d => d.categoryId === cat.id).length;
+                    return (
+                      <div key={cat.id} className="glass-card rounded-2xl p-5 border border-gold-500/20 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="w-10 h-10 rounded-xl bg-jungle-800 border border-gold-500/30 flex items-center justify-center text-gold-400">
+                              <Icon name={cat.icon || 'utensils'} className="w-5 h-5" />
+                            </div>
+                            <span className="text-xs px-2.5 py-1 rounded-full bg-jungle-950 border border-gold-500/30 text-gold-300 font-bold">
+                              {catDishesCount} {isAr ? 'وجبة' : 'items'}
+                            </span>
+                          </div>
+                          <h4 className="text-base font-bold text-slate-100">{cat.nameAr}</h4>
+                          <p className="text-gold-300 text-sm mt-0.5">{cat.nameEn}</p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-800 flex justify-end">
+                          <button
+                            onClick={() => handleDeleteCategory(cat.id)}
+                            className="px-3 py-1.5 rounded-lg bg-red-950/60 hover:bg-red-600 text-red-300 text-xs font-semibold transition"
+                          >
+                            {isAr ? 'حذف التصنيف' : 'Delete Category'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            )}
+          </main>
+
+          {/* DISH ADD/EDIT MODAL */}
+          {isDishModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-md overflow-y-auto">
+              <div className="max-w-2xl w-full glass-panel bg-jungle-950/98 border border-gold-500/40 rounded-3xl p-5 sm:p-7 shadow-2xl relative my-6 max-h-[92vh] overflow-y-auto">
+                <button
+                  onClick={() => setIsDishModalOpen(false)}
+                  className="absolute top-3.5 right-3.5 rtl:right-auto rtl:left-3.5 p-2 rounded-full bg-obsidian-900 text-slate-400 hover:text-white"
+                >
+                  <Icon name="x" className="w-5 h-5" />
+                </button>
+
+                <h3 className="text-lg sm:text-xl font-bold text-slate-100 gold-gradient-text mb-3">
+                  {editingDish ? (isAr ? 'تعديل الوجبة' : 'Edit Dish') : (isAr ? 'إضافة وجبة جديدة للقائمة' : 'Add New Dish')}
+                </h3>
+
+                <form onSubmit={handleSaveDish} className="space-y-3.5 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'اسم الوجبة (بالعربية)' : 'Name (Arabic)'}</label>
+                      <input
+                        type="text"
+                        value={dishForm.nameAr}
+                        onChange={(e) => setDishForm({ ...dishForm, nameAr: e.target.value })}
+                        required
+                        dir="rtl"
+                        placeholder="مثال: ستيك واغيو فاخر"
+                        className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400 font-arabic"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'اسم الوجبة (بالإنكليزية)' : 'Name (English)'}</label>
+                      <input
+                        type="text"
+                        value={dishForm.nameEn}
+                        onChange={(e) => setDishForm({ ...dishForm, nameEn: e.target.value })}
+                        required
+                        dir="ltr"
+                        placeholder="e.g. Wagyu Ribeye Steak"
+                        className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'التصنيف' : 'Category'}</label>
+                      <select
+                        value={dishForm.categoryId}
+                        onChange={(e) => setDishForm({ ...dishForm, categoryId: e.target.value })}
+                        className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400"
+                      >
+                        {categories.length === 0 ? (
+                          <option value="general">{isAr ? 'عام (بدون تصنيف)' : 'General (No Category)'}</option>
+                        ) : (
+                          categories.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.nameAr} ({c.nameEn})
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'السعر' : 'Price'}</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={dishForm.price}
+                        onChange={(e) => setDishForm({ ...dishForm, price: e.target.value })}
+                        required
+                        className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'الوصف ومكونات التحضير (بالعربية)' : 'Description (Arabic)'}</label>
+                      <textarea
+                        rows="2"
+                        dir="rtl"
+                        value={dishForm.descAr}
+                        onChange={(e) => setDishForm({ ...dishForm, descAr: e.target.value })}
+                        placeholder="طريقة التحضير، المكونات، الطعم..."
+                        className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2 text-white focus:outline-none focus:border-gold-400 font-arabic resize-none"
+                      ></textarea>
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'الوصف (بالإنكليزية)' : 'Description (English)'}</label>
+                      <textarea
+                        rows="2"
+                        dir="ltr"
+                        value={dishForm.descEn}
+                        onChange={(e) => setDishForm({ ...dishForm, descEn: e.target.value })}
+                        placeholder="Culinary description, preparation, taste..."
+                        className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2 text-white focus:outline-none focus:border-gold-400 resize-none"
+                      ></textarea>
+                    </div>
+                  </div>
+
+                  {/* Dish Photo: Pure Device Upload */}
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-jungle-900/70 border border-gold-500/20">
+                    <label className="block font-semibold text-slate-200 mb-2 text-xs sm:text-sm">
+                      {isAr ? 'صورة الوجبة (رفع مباشر من جهازك - جميع الصيغ)' : 'Dish Photo (Upload from Device)'}
+                    </label>
+
+                    <input
+                      ref={dishImageFileInputRef}
+                      type="file"
+                      accept={ACCEPTED_IMAGE_TYPES}
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) handleFileUpload(file, (url) => setDishForm(prev => ({ ...prev, image: url })), setDishImagePreview);
+                      }}
+                      className="hidden"
+                    />
+
+                    {isImageProcessing ? (
+                      <div className="rounded-xl p-6 border-2 border-dashed border-gold-500/60 bg-jungle-950/80 flex flex-col items-center justify-center space-y-2">
+                        <div className="w-8 h-8 border-2 border-gold-400 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-xs font-bold text-gold-300">
+                          {isAr ? 'جاري ضغط ومعالجة الصورة وتجهيزها للحفظ في قاعدة البيانات...' : 'Processing and preparing image for database...'}
+                        </p>
+                      </div>
+                    ) : (dishImagePreview || dishForm.image) ? (
+                      <div className="flex items-center gap-4">
+                        <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-2 border-gold-500/60 shadow-lg flex-shrink-0 bg-jungle-950">
+                          <img
+                            src={dishImagePreview || dishForm.image}
+                            alt="Dish Preview"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              if (dishImagePreview && e.target.src !== dishImagePreview) {
+                                e.target.src = dishImagePreview;
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-2 flex-1">
+                          <button
+                            type="button"
+                            onClick={() => dishImageFileInputRef.current.click()}
+                            className="px-3.5 py-2 rounded-xl bg-jungle-800 hover:bg-gold-500 hover:text-black text-slate-200 border border-gold-500/40 text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse"
+                          >
+                            <Icon name="upload" className="w-3.5 h-3.5" />
+                            <span>{isAr ? 'تغيير الصورة من جهازك' : 'Change Photo from Device'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDishForm(prev => ({ ...prev, image: '' }));
+                              setDishImagePreview('');
+                              if (dishImageFileInputRef.current) dishImageFileInputRef.current.value = '';
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-red-950/80 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/40 text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse"
+                          >
+                            <Icon name="trash" className="w-3.5 h-3.5" />
+                            <span>{isAr ? 'حذف صورة الوجبة' : 'Remove Photo'}</span>
+                          </button>
+                          <p className="text-[11px] text-slate-400">JPG, PNG, WEBP, SVG, GIF, AVIF, HEIC</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => dishImageFileInputRef.current.click()}
+                        className="cursor-pointer border-2 border-dashed border-gold-500/40 hover:border-gold-400 rounded-xl p-5 text-center bg-jungle-950/60 hover:bg-jungle-900/50 transition flex flex-col items-center justify-center space-y-2 group"
+                      >
+                        <div className="w-12 h-12 rounded-full bg-jungle-800 group-hover:bg-gold-500 group-hover:text-black text-gold-400 flex items-center justify-center transition shadow-gold-glow-sm">
+                          <Icon name="upload" className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm font-bold text-slate-200 group-hover:text-gold-300 transition">
+                            {isAr ? 'اضغط هنا لاختيار ورفع صورة الوجبة من جهازك' : 'Click here to upload dish photo from your device'}
+                          </p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            {isAr ? 'يقبل كافة لواحق الصور (JPG, PNG, WEBP, SVG, GIF, AVIF...)' : 'All image formats supported'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800 space-y-2.5">
+                    <label className="block font-semibold text-slate-300">{isAr ? 'الشارات والمميزات' : 'Tags'}</label>
+                    <div className="flex flex-wrap gap-3">
+                      <label className="flex items-center space-x-1.5 rtl:space-x-reverse cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={dishForm.isChefSpecial}
+                          onChange={(e) => setDishForm({ ...dishForm, isChefSpecial: e.target.checked })}
+                          className="rounded text-gold-500"
+                        />
+                        <span className="text-gold-300 font-semibold">★ {isAr ? 'لمسة الشيف' : 'Chef'}</span>
+                      </label>
+                      <label className="flex items-center space-x-1.5 rtl:space-x-reverse cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={dishForm.isBestSeller}
+                          onChange={(e) => setDishForm({ ...dishForm, isBestSeller: e.target.checked })}
+                          className="rounded text-amber-500"
+                        />
+                        <span className="text-amber-300 font-semibold">🔥 {isAr ? 'الأكثر طلباً' : 'Best'}</span>
+                      </label>
+                      <label className="flex items-center space-x-1.5 rtl:space-x-reverse cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={dishForm.isVegetarian}
+                          onChange={(e) => setDishForm({ ...dishForm, isVegetarian: e.target.checked })}
+                          className="rounded text-emerald-500"
+                        />
+                        <span className="text-emerald-300 font-semibold">🌿 {isAr ? 'نباتي' : 'Veg'}</span>
+                      </label>
+                      <label className="flex items-center space-x-1.5 rtl:space-x-reverse cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={dishForm.isSpicy}
+                          onChange={(e) => setDishForm({ ...dishForm, isSpicy: e.target.checked })}
+                          className="rounded text-red-500"
+                        />
+                        <span className="text-red-300 font-semibold">🌶️ {isAr ? 'حار' : 'Spicy'}</span>
+                      </label>
+                    </div>
+
+                    <div className="pt-1">
+                      <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'حالة التوفر' : 'Stock Availability'}</label>
+                      <button
+                        type="button"
+                        onClick={() => setDishForm({ ...dishForm, inStock: !dishForm.inStock })}
+                        className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse ${dishForm.inStock ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/50' : 'bg-red-950 text-red-300 border border-red-500/50'}`}
+                      >
+                        <span>{dishForm.inStock ? '✓' : '✕'}</span>
+                        <span>{dishForm.inStock ? (isAr ? 'متوفر حالياً' : 'In Stock') : (isAr ? 'نفذت الكمية' : 'Sold Out')}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsDishModalOpen(false)}
+                      className="px-4 py-2 rounded-xl bg-obsidian-800 text-slate-300 font-semibold"
+                    >
+                      {isAr ? 'إلغاء' : 'Cancel'}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isImageProcessing}
+                      className={`px-5 py-2 rounded-xl font-bold shadow-gold-glow transition flex items-center space-x-2 rtl:space-x-reverse ${isImageProcessing ? 'bg-gold-500/50 cursor-not-allowed text-obsidian-900' : 'bg-gold-500 text-obsidian-950 hover:bg-gold-400'}`}
+                    >
+                      {isImageProcessing ? (
+                        <span>{isAr ? 'جاري تجهيز الصورة...' : 'Processing Photo...'}</span>
+                      ) : (
+                        <span>{isAr ? 'حفظ الوجبة' : 'Save Dish'}</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* CATEGORY ADD MODAL */}
+          {isCategoryModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-sm">
+              <div className="max-w-md w-full glass-panel bg-jungle-950 border border-gold-500/40 rounded-3xl p-5 sm:p-6 shadow-2xl relative">
+                <button
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="absolute top-3.5 right-3.5 rtl:right-auto rtl:left-3.5 p-2 rounded-full bg-obsidian-900 text-slate-400 hover:text-white"
+                >
+                  <Icon name="x" className="w-5 h-5" />
+                </button>
+
+                <h3 className="text-lg font-bold text-slate-100 gold-gradient-text mb-3">
+                  {isAr ? 'إضافة تصنيف جديد' : 'Add New Category'}
+                </h3>
+
+                <form onSubmit={handleAddCategory} className="space-y-3.5 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'اسم التصنيف (بالعربية)' : 'Category Name (Arabic)'}</label>
+                    <input
+                      type="text"
+                      value={newCategoryForm.nameAr}
+                      onChange={(e) => setNewCategoryForm({ ...newCategoryForm, nameAr: e.target.value })}
+                      required
+                      dir="rtl"
+                      placeholder="مثال: مأكولات بحرية فاخرة"
+                      className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400 font-arabic"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'اسم التصنيف (بالإنكليزية)' : 'Category Name (English)'}</label>
+                    <input
+                      type="text"
+                      value={newCategoryForm.nameEn}
+                      onChange={(e) => setNewCategoryForm({ ...newCategoryForm, nameEn: e.target.value })}
+                      required
+                      dir="ltr"
+                      placeholder="e.g. Premium Seafood"
+                      className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400"
+                    />
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsCategoryModalOpen(false)}
+                      className="px-4 py-2 rounded-xl bg-obsidian-800 text-slate-300 font-semibold"
+                    >
+                      {isAr ? 'إلغاء' : 'Cancel'}
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 rounded-xl bg-gold-500 text-obsidian-950 font-bold shadow-gold-glow hover:bg-gold-400"
+                    >
+                      {isAr ? 'إضافة التصنيف' : 'Add Category'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<JungleAdminApp />);
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,36 @@
+kind = "web"
+previewPath = "/"
+title = "Jungle Rooftop & Lounge"
+description = "قائمة طعام رقمية ثنائية اللغة لمطعم Jungle Rooftop & Lounge، مع لوحة إدارة لإدارة الوجبات والتصنيفات ومعلومات المطعم."
+version = "1.0.0"
+id = "artifacts/jungle-rooftop"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21762
+
+[services.development]
+run = "pnpm --filter @workspace/jungle-rooftop run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/jungle-rooftop", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/jungle-rooftop/dist/public"
+
+[[services.production.rewrites]]
+from = "/admin"
+to = "/admin/index.html"
+
+[[services.production.rewrites]]
+from = "/admin/*"
+to = "/admin/index.html"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21762"
+BASE_PATH = "/"

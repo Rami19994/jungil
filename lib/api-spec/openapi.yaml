@@ -1,0 +1,496 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: menu
+    description: Restaurant menu and admin operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /menu-version:
+    get:
+      operationId: getMenuVersion
+      tags: [menu]
+      summary: Get the latest menu version
+      responses:
+        "200":
+          description: Current version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MenuVersion"
+  /menu:
+    get:
+      operationId: getMenu
+      tags: [menu]
+      summary: Get the complete menu
+      responses:
+        "200":
+          description: Menu data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MenuResponse"
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [menu]
+      summary: Get restaurant settings
+      responses:
+        "200":
+          description: Restaurant settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantSettings"
+    post:
+      operationId: updateSettings
+      tags: [menu]
+      summary: Update restaurant settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsInput"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [menu]
+      summary: List menu categories
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      operationId: saveCategory
+      tags: [menu]
+      summary: Add or update a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "200":
+          description: Category saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+  /categories/{id}:
+    delete:
+      operationId: deleteCategory
+      tags: [menu]
+      summary: Delete a category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Category deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+  /categories/clear-all:
+    post:
+      operationId: clearCategories
+      tags: [menu]
+      summary: Remove all categories
+      responses:
+        "200":
+          description: Categories cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+  /dishes:
+    get:
+      operationId: listDishes
+      tags: [menu]
+      summary: List all dishes
+      responses:
+        "200":
+          description: Dishes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Dish"
+    post:
+      operationId: saveDish
+      tags: [menu]
+      summary: Add a dish
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DishInput"
+      responses:
+        "200":
+          description: Dish saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+  /dishes/{id}:
+    put:
+      operationId: updateDish
+      tags: [menu]
+      summary: Update a dish
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DishInput"
+      responses:
+        "200":
+          description: Dish updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+    delete:
+      operationId: deleteDish
+      tags: [menu]
+      summary: Delete a dish
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dish deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+  /dishes/clear-all:
+    post:
+      operationId: clearDishes
+      tags: [menu]
+      summary: Remove all dishes
+      responses:
+        "200":
+          description: Dishes cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+  /upload:
+    post:
+      operationId: uploadImage
+      tags: [menu]
+      summary: Receive an uploaded restaurant image
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadInput"
+      responses:
+        "200":
+          description: Image accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+  /reset:
+    post:
+      operationId: resetRestaurant
+      tags: [menu]
+      summary: Restore the default restaurant settings
+      responses:
+        "200":
+          description: Data reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+  /backup:
+    get:
+      operationId: getBackup
+      tags: [menu]
+      summary: Export restaurant data
+      responses:
+        "200":
+          description: Backup data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupResponse"
+  /restore:
+    post:
+      operationId: restoreBackup
+      tags: [menu]
+      summary: Restore restaurant data from a backup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreInput"
+      responses:
+        "200":
+          description: Backup restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MutationResponse"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    MenuVersion:
+      type: object
+      properties:
+        version:
+          type: integer
+        timestamp:
+          type: string
+      required: [version, timestamp]
+    RestaurantSettings:
+      type: object
+      additionalProperties:
+        type: string
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+        nameEn:
+          type: string
+        nameAr:
+          type: string
+        icon:
+          type: string
+        displayOrder:
+          type: integer
+      required: [id, nameEn, nameAr, icon, displayOrder]
+    CategoryInput:
+      type: object
+      properties:
+        id:
+          type: string
+        nameEn:
+          type: string
+        nameAr:
+          type: string
+        icon:
+          type: string
+        displayOrder:
+          type: integer
+    Dish:
+      type: object
+      properties:
+        id:
+          type: string
+        categoryId:
+          type: string
+        nameEn:
+          type: string
+        nameAr:
+          type: string
+        descEn:
+          type: string
+        descAr:
+          type: string
+        price:
+          type: number
+        image:
+          type: string
+        isChefSpecial:
+          type: boolean
+        isBestSeller:
+          type: boolean
+        isVegetarian:
+          type: boolean
+        isSpicy:
+          type: boolean
+        inStock:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - categoryId
+        - nameEn
+        - nameAr
+        - descEn
+        - descAr
+        - price
+        - image
+        - isChefSpecial
+        - isBestSeller
+        - isVegetarian
+        - isSpicy
+        - inStock
+        - createdAt
+        - updatedAt
+    DishInput:
+      type: object
+      properties:
+        id:
+          type: string
+        categoryId:
+          type: string
+        nameEn:
+          type: string
+        nameAr:
+          type: string
+        descEn:
+          type: string
+        descAr:
+          type: string
+        price:
+          type: number
+        image:
+          type: string
+        isChefSpecial:
+          type: boolean
+        isBestSeller:
+          type: boolean
+        isVegetarian:
+          type: boolean
+        isSpicy:
+          type: boolean
+        inStock:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+    SettingsInput:
+      type: object
+      additionalProperties:
+        type: string
+    UploadInput:
+      type: object
+      properties:
+        base64Data:
+          type: string
+        filename:
+          type: string
+      required: [base64Data]
+    UploadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        url:
+          type: string
+      required: [success, url]
+    MenuResponse:
+      type: object
+      properties:
+        settings:
+          $ref: "#/components/schemas/RestaurantSettings"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+        dishes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dish"
+        updatedAt:
+          type: string
+      required: [settings, categories, dishes, updatedAt]
+    BackupResponse:
+      type: object
+      properties:
+        exportedAt:
+          type: string
+        restaurant:
+          type: string
+        settings:
+          $ref: "#/components/schemas/RestaurantSettings"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+        dishes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dish"
+      required: [exportedAt, restaurant, settings, categories, dishes]
+    RestoreInput:
+      type: object
+      properties:
+        settings:
+          $ref: "#/components/schemas/RestaurantSettings"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryInput"
+        dishes:
+          type: array
+          items:
+            $ref: "#/components/schemas/DishInput"
+    MutationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        id:
+          type: string
+        image:
+          type: string
+        message:
+          type: string
+      required: [success]
+

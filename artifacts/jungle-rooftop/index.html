@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="scroll-smooth">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>قائمة الطعام الرقمية الفاخرة</title>
+  <meta name="description" content="قائمة طعام رقمية فاخرة ومشروبات ومأكولات مع الأسعار." />
+
+  <!-- Dynamic Favicon -->
+  <link id="dynamic-favicon" rel="icon" type="image/jpeg" href="logo.jpg" />
+
+  <!-- Google Fonts: Cairo (Arabic), Outfit (EN Sans), Playfair Display (Luxury Headings) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          screens: {
+            'xs': '380px',
+          },
+          colors: {
+            jungle: {
+              950: '#03140e',
+              900: '#062319',
+              850: '#082d20',
+              800: '#0b3b2c',
+              700: '#12543f',
+              600: '#1a7356',
+              500: '#239570',
+            },
+            obsidian: {
+              950: '#05070a',
+              900: '#0d1117',
+              850: '#121720',
+              800: '#161c26',
+              700: '#212836',
+              600: '#30394a',
+            },
+            gold: {
+              50: '#fdfbf2',
+              100: '#faf5df',
+              200: '#f3e5ab',
+              300: '#eed577',
+              400: '#e2bf44',
+              500: '#d4af37', // Polished Champagne Gold
+              600: '#b89224',
+              700: '#8e6c15',
+              800: '#644b0c',
+            }
+          },
+          fontFamily: {
+            sans: ['Outfit', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            arabic: ['Cairo', 'Tahoma', 'Arial', 'sans-serif'],
+            luxury: ['Playfair Display', 'Georgia', 'serif'],
+          },
+          boxShadow: {
+            'gold-glow': '0 0 25px rgba(212, 175, 55, 0.28)',
+            'gold-glow-sm': '0 0 12px rgba(212, 175, 55, 0.22)',
+            'emerald-glow': '0 0 35px rgba(11, 59, 44, 0.45)',
+          },
+          animation: {
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18 & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel Standalone for JSX parsing -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    :root {
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      background-color: #070a0e;
+      color: #e2e8f0;
+      overflow-x: hidden;
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #070a0e;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #0b3b2c;
+      border-radius: 9999px;
+      border: 1px solid rgba(212, 175, 55, 0.2);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #d4af37;
+    }
+
+    .glass-panel {
+      background: rgba(13, 23, 20, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(212, 175, 55, 0.16);
+    }
+
+    .glass-header {
+      background: rgba(6, 35, 25, 0.94);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(212, 175, 55, 0.18);
+    }
+
+    .glass-card {
+      background: linear-gradient(135deg, rgba(13, 24, 21, 0.88) 0%, rgba(9, 15, 14, 0.95) 100%);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(212, 175, 55, 0.13);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .glass-card:hover {
+      border-color: rgba(212, 175, 55, 0.45);
+      box-shadow: 0 14px 40px -10px rgba(0, 0, 0, 0.85), 0 0 25px rgba(212, 175, 55, 0.18);
+    }
+
+    .gold-gradient-text {
+      background: linear-gradient(135deg, #fcedb3 0%, #d4af37 50%, #aa8010 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .mobile-safe-bottom {
+      padding-bottom: calc(var(--sab) + 72px);
+    }
+  </style>
+</head>
+
+<body class="bg-[#070a0e] text-slate-100 antialiased selection:bg-gold-500 selection:text-black">
+  <div id="root"></div>
+
+  <!-- Main React App Script -->
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // Supported Image Extensions list
+    const ACCEPTED_IMAGE_TYPES = "image/*, .jpg, .jpeg, .png, .webp, .svg, .gif, .avif, .bmp, .ico, .tiff, .tif, .heic, .heif";
+
+    // --- ICONS (Lucide SVG Component Library) ---
+    const Icon = ({ name, className = "w-5 h-5", ...props }) => {
+      const icons = {
+        search: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.3-4.3"></path>
+          </svg>
+        ),
+        plus: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        ),
+        x: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M18 6 6 18"></path>
+            <path d="m6 6 12 12"></path>
+          </svg>
+        ),
+        flame: (
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" className={className} {...props}>
+            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+          </svg>
+        ),
+        utensils: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"></path>
+            <path d="M15 11v11"></path>
+            <path d="M5 2v8a2.5 2.5 0 0 0 2.5 2.5V22"></path>
+            <path d="M8 2v4"></path>
+          </svg>
+        ),
+        wine: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M8 22h8"></path>
+            <path d="M7 10h10"></path>
+            <path d="M12 15v7"></path>
+            <path d="M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5Z"></path>
+          </svg>
+        ),
+        coffee: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M10 2v2"></path>
+            <path d="M14 2v2"></path>
+            <path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h12Z"></path>
+            <path d="M6 2v2"></path>
+          </svg>
+        ),
+        sparkles: (
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" className={className} {...props}>
+            <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"></path>
+          </svg>
+        ),
+        star: (
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" className={className} {...props}>
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+        ),
+        lock: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        ),
+        trash: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M3 6h18"></path>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+          </svg>
+        ),
+        edit: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+        ),
+        globe: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+        ),
+        clock: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        ),
+        phone: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+          </svg>
+        ),
+        mapPin: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+        ),
+        layers: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        ),
+        settings: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        ),
+        upload: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        ),
+        download: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+        ),
+        grid: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <rect width="7" height="7" x="3" y="3" rx="1"></rect>
+            <rect width="7" height="7" x="14" y="3" rx="1"></rect>
+            <rect width="7" height="7" x="14" y="14" rx="1"></rect>
+            <rect width="7" height="7" x="3" y="14" rx="1"></rect>
+          </svg>
+        ),
+        list: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+        )
+      };
+      return icons[name] || <span className={className}>•</span>;
+    };
+
+    // --- DEFAULT INITIAL STATE DATA ---
+    const DEFAULT_SETTINGS = {
+      restaurantNameEn: 'Jungle',
+      restaurantNameAr: 'جانغل',
+      taglineEn: 'Rooftop & Lounge Dining Experience',
+      taglineAr: 'تجربة طعام وسهرات استثنائية على الروف توب',
+      addressEn: 'Ankawa, Main Street, Luxury Hotel',
+      addressAr: 'عنكاوة - الشارع الرئيسي - فندق luxury',
+      mapUrl: 'https://maps.app.goo.gl/xiSWgf6a2JBKpTya9',
+      logoUrl: '',
+      heroBgUrl: 'hero-bg.jpg',
+    };
+
+    // --- MAIN REACT APPLICATION COMPONENT ---
+    function JungleLoungeApp() {
+      // States
+      const [lang, setLang] = useState('ar'); // Default to Arabic
+      const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+
+      // Dynamic Settings
+      const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+
+      // Data: Dishes & Categories
+      const [categories, setCategories] = useState([]);
+      const [dishes, setDishes] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
+
+      // Filters & Search
+      const [activeCategory, setActiveCategory] = useState('all');
+      const [searchQuery, setSearchQuery] = useState('');
+      const [activeTagFilter, setActiveTagFilter] = useState('all');
+
+      // Modals
+      const [selectedDishDetail, setSelectedDishDetail] = useState(null);
+
+      // Toast Alerts
+      const [toast, setToast] = useState(null);
+
+      const isAr = lang === 'ar';
+      const searchInputRef = useRef(null);
+
+      // Show Toast Notification
+      const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3200);
+      };
+
+      // Load Data directly from SQLite 3 Backend (Live & Real-time, No Cache, No LocalStorage Fallback)
+      const loadData = async (showLoading = true) => {
+        try {
+          if (showLoading) setIsLoading(true);
+          const t = Date.now();
+          const fetchOpts = {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+            },
+          };
+
+          // Completely remove any old stale cache from localStorage so deleted dishes never return
+          try {
+            localStorage.removeItem('jungle_cache');
+          } catch (_) {}
+
+          // 1. Fetch live unified menu directly from SQLite 3
+          let loaded = false;
+          try {
+            const menuRes = await fetch(`/api/menu?t=${t}`, fetchOpts);
+            if (menuRes.ok) {
+              const menuData = await menuRes.json();
+              if (menuData) {
+                if (menuData.settings && Object.keys(menuData.settings).length > 0) {
+                  setSettings(menuData.settings);
+                }
+                if (Array.isArray(menuData.categories)) {
+                  setCategories(menuData.categories);
+                }
+                if (Array.isArray(menuData.dishes)) {
+                  setDishes(menuData.dishes);
+                }
+                loaded = true;
+              }
+            }
+          } catch (_) {}
+
+          // 2. Direct individual endpoints from SQLite 3 if unified was unavailable
+          if (!loaded) {
+            const [settingsRes, catsRes, dishesRes] = await Promise.all([
+              fetch(`/api/settings?t=${t}`, fetchOpts).catch(() => null),
+              fetch(`/api/categories?t=${t}`, fetchOpts).catch(() => null),
+              fetch(`/api/dishes?t=${t}`, fetchOpts).catch(() => null),
+            ]);
+
+            if (settingsRes && settingsRes.ok) {
+              const data = await settingsRes.json();
+              if (data && Object.keys(data).length > 0) setSettings(data);
+            }
+
+            if (catsRes && catsRes.ok) {
+              const data = await catsRes.json();
+              if (Array.isArray(data)) setCategories(data);
+            }
+
+            if (dishesRes && dishesRes.ok) {
+              const data = await dishesRes.json();
+              if (Array.isArray(data)) setDishes(data);
+            }
+          }
+        } catch (err) {
+          console.error('Error reading directly from SQLite 3 database:', err);
+        } finally {
+          if (showLoading) setIsLoading(false);
+        }
+      };
+
+      useEffect(() => {
+        loadData(true);
+
+        // Instant cross-tab broadcast synchronization (0ms latency)
+        const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('jungle_sync') : null;
+        if (syncChannel) {
+          syncChannel.onmessage = () => {
+            loadData(false);
+          };
+        }
+
+        // Live Real-Time Auto Sync across all visitor devices without page refresh (every 2.5s)
+        let lastVersion = null;
+        const interval = setInterval(async () => {
+          try {
+            const res = await fetch('/api/menu-version?t=' + Date.now(), { cache: 'no-store' });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.version && lastVersion && data.version !== lastVersion) {
+                lastVersion = data.version;
+                loadData(false);
+              } else if (data.version) {
+                lastVersion = data.version;
+              }
+            }
+          } catch (_) {}
+        }, 2500);
+
+        return () => {
+          if (syncChannel) syncChannel.close();
+          clearInterval(interval);
+        };
+      }, []);
+
+      // URL Route Handler for /admin and #admin -> redirects to dedicated admin page
+      useEffect(() => {
+        const handleAdminRoute = () => {
+          const path = window.location.pathname.toLowerCase();
+          const hash = window.location.hash.toLowerCase();
+          const isAdminPath = path === '/admin' || path.endsWith('/admin') || hash === '#admin' || hash === '#/admin';
+
+          if (isAdminPath) {
+            window.location.href = '/admin';
+          }
+        };
+
+        handleAdminRoute();
+        window.addEventListener('popstate', handleAdminRoute);
+        window.addEventListener('hashchange', handleAdminRoute);
+        return () => {
+          window.removeEventListener('popstate', handleAdminRoute);
+          window.removeEventListener('hashchange', handleAdminRoute);
+        };
+      }, []);
+
+      // Update Language & Direction
+      useEffect(() => {
+        document.documentElement.dir = isAr ? 'rtl' : 'ltr';
+        document.documentElement.lang = lang;
+        document.title = isAr
+          ? `${settings.restaurantNameAr} | قائمة الطعام الفاخرة`
+          : `${settings.restaurantNameEn} | Luxury Digital Menu`;
+      }, [lang, isAr, settings]);
+
+      // Fallback activeCategory to 'all' if selected category is deleted
+      useEffect(() => {
+        if (activeCategory !== 'all' && !categories.some(c => c.id === activeCategory)) {
+          setActiveCategory('all');
+        }
+      }, [categories, activeCategory]);
+
+      // Format Price (pure number, zero currency)
+      const formatPrice = (price) => {
+        return Number(price) || 0;
+      };
+
+      // Filtered Dishes
+      const filteredDishes = useMemo(() => {
+        return dishes.filter(dish => {
+          if (activeCategory !== 'all' && dish.categoryId !== activeCategory) return false;
+          if (activeTagFilter === 'chef' && !dish.isChefSpecial) return false;
+          if (activeTagFilter === 'best' && !dish.isBestSeller) return false;
+          if (activeTagFilter === 'veg' && !dish.isVegetarian) return false;
+          if (activeTagFilter === 'spicy' && !dish.isSpicy) return false;
+
+          if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase().trim();
+            const matchNameEn = dish.nameEn?.toLowerCase().includes(query);
+            const matchNameAr = dish.nameAr?.includes(query);
+            const matchDescEn = dish.descEn?.toLowerCase().includes(query);
+            const matchDescAr = dish.descAr?.includes(query);
+            if (!matchNameEn && !matchNameAr && !matchDescEn && !matchDescAr) return false;
+          }
+          return true;
+        });
+      }, [dishes, activeCategory, activeTagFilter, searchQuery]);
+
+      return (
+        <div className={`min-h-screen bg-[#070a0e] text-slate-100 mobile-safe-bottom ${isAr ? 'font-arabic' : 'font-sans'}`}>
+          {/* TOAST ALERT */}
+          {toast && (
+            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-4 w-full max-w-sm pointer-events-none">
+              <div className="glass-panel px-4 py-2.5 rounded-full border border-gold-500/60 shadow-gold-glow flex items-center justify-center space-x-2.5 rtl:space-x-reverse bg-jungle-950/95 text-gold-300 text-xs sm:text-sm font-semibold text-center animate-bounce">
+                <Icon name="sparkles" className="w-4 h-4 text-gold-400 flex-shrink-0 animate-spin" />
+                <span className="truncate">{toast.message}</span>
+              </div>
+            </div>
+          )}
+
+          {/* MAIN LUXURY HEADER / NAVBAR */}
+          <header className="sticky top-0 z-40 glass-header border-b border-gold-500/20 shadow-2xl">
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-3">
+              {/* Brand Logo + Name + Exact Address Right Next to the Logo */}
+              <div
+                onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                className="flex items-center space-x-3 sm:space-x-4 rtl:space-x-reverse cursor-pointer group min-w-0 flex-1"
+              >
+                {/* Logo (Shown only if uploaded) */}
+                {settings.logoUrl ? (
+                  <div className="relative flex-shrink-0">
+                    <img
+                      src={settings.logoUrl}
+                      alt="Restaurant Logo"
+                      className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-gold-500/70 object-cover shadow-gold-glow group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-emerald-500 w-3 h-3 rounded-full border-2 border-jungle-950"></div>
+                  </div>
+                ) : null}
+
+                {/* Name and Address directly next to the logo */}
+                <div className="min-w-0 flex-1">
+                  {/* Restaurant Name */}
+                  <h1 className="text-sm xs:text-base sm:text-xl md:text-2xl font-black tracking-wider text-slate-100 uppercase group-hover:text-gold-300 transition-colors truncate leading-tight">
+                    {isAr ? settings.restaurantNameAr : settings.restaurantNameEn}
+                  </h1>
+
+                  {/* Address - exactly as written by admin */}
+                  {(isAr ? settings.addressAr : settings.addressEn) && (
+                    settings.mapUrl ? (
+                      <a
+                        href={settings.mapUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        title={isAr ? 'افتح الموقع على خرائط غوغل' : 'Open in Google Maps'}
+                        className="inline-flex items-center space-x-1 rtl:space-x-reverse text-slate-300 hover:text-gold-300 font-medium mt-1 text-[11px] sm:text-xs transition-colors underline-offset-4 hover:underline"
+                      >
+                        <Icon name="mapPin" className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                        <span className="whitespace-pre-line leading-relaxed">{isAr ? settings.addressAr : settings.addressEn}</span>
+                      </a>
+                    ) : (
+                      <div className="flex items-center space-x-1 rtl:space-x-reverse text-slate-300 font-medium mt-1 text-[11px] sm:text-xs">
+                        <Icon name="mapPin" className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                        <span className="whitespace-pre-line leading-relaxed">{isAr ? settings.addressAr : settings.addressEn}</span>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+
+              {/* Controls: Language Only (Lock removed - accessible via /admin, Currency removed) */}
+              <div className="flex items-center space-x-1.5 sm:space-x-3 rtl:space-x-reverse flex-shrink-0">
+                {/* Bilingual Language Switcher */}
+                <button
+                  onClick={() => setLang(prev => prev === 'en' ? 'ar' : 'en')}
+                  className="flex items-center space-x-1 rtl:space-x-reverse bg-jungle-900/90 hover:bg-gold-500/20 text-gold-300 border border-gold-500/40 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition shadow-sm active:scale-95"
+                >
+                  <Icon name="globe" className="w-3.5 h-3.5 text-gold-400 flex-shrink-0" />
+                  <span>{lang === 'en' ? 'العربية' : 'EN'}</span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* ========================================================
+             CUSTOMER LUXURY DIGITAL MENU (SHOWCASE)
+             ======================================================== */}
+          <main>
+            {/* HERO BANNER */}
+            <section className="relative min-h-[300px] xs:min-h-[340px] sm:min-h-[380px] flex items-center justify-center overflow-hidden">
+              <div
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
+                style={(() => {
+                  const bg = settings.heroBgUrl === undefined ? 'hero-bg.jpg' : settings.heroBgUrl;
+                  return bg ? { backgroundImage: `url('${bg}')` } : {};
+                })()}
+              >
+                <div className="absolute inset-0 bg-gradient-to-b from-[#070a0e]/80 via-[#062319]/85 to-[#070a0e]"></div>
+                <div className="absolute top-1/4 left-1/4 w-72 sm:w-96 h-72 sm:h-96 bg-emerald-600/20 rounded-full blur-[100px] pointer-events-none"></div>
+                <div className="absolute bottom-10 right-1/4 w-72 sm:w-96 h-72 sm:h-96 bg-gold-500/15 rounded-full blur-[100px] pointer-events-none"></div>
+              </div>
+
+              <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pt-3 pb-6 sm:pt-4 sm:pb-8 w-full -mt-2 sm:-mt-4">
+                <div className="glass-panel rounded-3xl p-5 sm:p-7 md:p-8 border border-gold-500/35 shadow-2xl backdrop-blur-2xl bg-jungle-950/85 relative overflow-hidden">
+                  {/* Subtle golden ambient background glow */}
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-gold-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-6 md:gap-8 relative z-10">
+                    {/* Restaurant Logo (Shown only if present) */}
+                    {settings.logoUrl ? (
+                      <div className="relative flex-shrink-0 group">
+                        <img
+                          src={settings.logoUrl}
+                          alt="Restaurant Logo"
+                          className="w-24 h-24 sm:w-28 sm:h-28 md:w-36 md:h-36 rounded-full border-2 border-gold-500/80 object-cover shadow-gold-glow"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                        <div className="absolute bottom-1 right-1 rtl:right-auto rtl:left-1 bg-emerald-500 w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-jungle-950 shadow"></div>
+
+                      </div>
+                    ) : null}
+
+                    {/* Brand Info (Elevated and Clean) */}
+                    <div className="flex-1 text-center sm:text-start rtl:sm:text-right min-w-0 -mt-1 sm:-mt-2">
+                      {/* Restaurant Name */}
+                      <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-slate-100 uppercase leading-tight">
+                        {isAr ? settings.restaurantNameAr : settings.restaurantNameEn}
+                      </h2>
+                      <p className="gold-gradient-text text-sm xs:text-base sm:text-lg md:text-xl font-luxury italic capitalize font-normal mt-1 sm:mt-1.5">
+                        {isAr ? settings.taglineAr : settings.taglineEn}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* SEARCH & CATEGORY BAR */}
+            <section className="sticky top-16 sm:top-20 z-30 bg-[#070a0e]/95 backdrop-blur-xl border-y border-gold-500/20 py-3 sm:py-4 px-3 sm:px-6 shadow-xl">
+              <div className="max-w-7xl mx-auto space-y-2.5 sm:space-y-3">
+                {/* Search Bar + Grid/List View Toggle */}
+                <div className="flex items-center gap-2 max-w-3xl mx-auto">
+                  <div className="relative flex-1">
+                    <div className="absolute inset-y-0 left-0 rtl:left-auto rtl:right-0 pl-3 rtl:pl-0 rtl:pr-3 flex items-center pointer-events-none text-gold-400">
+                      <Icon name="search" className="w-4 h-4" />
+                    </div>
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={isAr ? 'ابحث عن الوجبات، المأكولات، المشروبات، المكونات...' : 'Search dishes, meals, drinks, ingredients...'}
+                      className="w-full pl-9 rtl:pl-9 rtl:pr-9 pr-8 py-2 sm:py-2.5 rounded-xl bg-jungle-950/90 border border-gold-500/30 text-slate-100 placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-gold-400 shadow-inner"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute inset-y-0 right-0 rtl:right-auto rtl:left-0 pr-2.5 rtl:pr-0 rtl:pl-2.5 flex items-center text-slate-400 hover:text-white"
+                      >
+                        <Icon name="x" className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* View Mode Toggle */}
+                  <div className="flex items-center bg-jungle-950 p-1 rounded-xl border border-gold-500/30 flex-shrink-0">
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={`p-1.5 rounded-lg transition ${viewMode === 'grid' ? 'bg-gold-500 text-black shadow' : 'text-slate-400 hover:text-white'}`}
+                      title="عرض شبكي"
+                    >
+                      <Icon name="grid" className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className={`p-1.5 rounded-lg transition ${viewMode === 'list' ? 'bg-gold-500 text-black shadow' : 'text-slate-400 hover:text-white'}`}
+                      title="عرض قائمة"
+                    >
+                      <Icon name="list" className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Horizontal Scrollable Categories Bar */}
+                <div className="overflow-x-auto hide-scrollbar py-1">
+                  <div className="flex items-center space-x-2 rtl:space-x-reverse min-w-max px-1">
+                    <button
+                      onClick={() => setActiveCategory('all')}
+                      className={`flex-shrink-0 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse ${activeCategory === 'all' ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-105' : 'glass-panel text-slate-300 hover:text-white'}`}
+                    >
+                      <Icon name="sparkles" className="w-3.5 h-3.5" />
+                      <span>{isAr ? 'جميع التصنيفات' : 'All Categories'}</span>
+                      <span className="text-[10px] opacity-80 font-mono">({dishes.length})</span>
+                    </button>
+
+                    {categories.map((cat) => {
+                      const count = dishes.filter(d => d.categoryId === cat.id).length;
+                      const isActive = activeCategory === cat.id;
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => setActiveCategory(cat.id)}
+                          className={`flex-shrink-0 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse ${isActive ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-105' : 'glass-panel text-slate-300 hover:text-white'}`}
+                        >
+                          <Icon name={cat.icon || 'utensils'} className="w-3.5 h-3.5" />
+                          <span>{isAr ? cat.nameAr : cat.nameEn}</span>
+                          <span className="text-[10px] opacity-80 font-mono">({count})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Dietary Quick Filter Pills */}
+                <div className="flex items-center space-x-1.5 rtl:space-x-reverse overflow-x-auto hide-scrollbar text-[11px] pt-0.5">
+                  <button
+                    onClick={() => setActiveTagFilter('all')}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition flex-shrink-0 ${activeTagFilter === 'all' ? 'bg-emerald-800 text-gold-200 border border-emerald-500' : 'bg-jungle-950 text-slate-400 border border-slate-800'}`}
+                  >
+                    {isAr ? 'الكل' : 'All'}
+                  </button>
+                  <button
+                    onClick={() => setActiveTagFilter('chef')}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition flex-shrink-0 flex items-center space-x-1 rtl:space-x-reverse ${activeTagFilter === 'chef' ? 'bg-gold-500 text-black border border-gold-400' : 'bg-jungle-950 text-gold-300 border border-gold-500/30'}`}
+                  >
+                    <span>★</span>
+                    <span>{isAr ? 'لمسة الشيف' : "Chef's Special"}</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTagFilter('best')}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition flex-shrink-0 flex items-center space-x-1 rtl:space-x-reverse ${activeTagFilter === 'best' ? 'bg-amber-500 text-black border border-amber-400' : 'bg-jungle-950 text-amber-300 border border-amber-500/30'}`}
+                  >
+                    <span>🔥</span>
+                    <span>{isAr ? 'الأكثر طلباً' : 'Best Seller'}</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTagFilter('veg')}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition flex-shrink-0 flex items-center space-x-1 rtl:space-x-reverse ${activeTagFilter === 'veg' ? 'bg-emerald-600 text-white border border-emerald-400' : 'bg-jungle-950 text-emerald-300 border border-emerald-500/30'}`}
+                  >
+                    <span>🌿</span>
+                    <span>{isAr ? 'نباتي' : 'Vegetarian'}</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTagFilter('spicy')}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition flex-shrink-0 flex items-center space-x-1 rtl:space-x-reverse ${activeTagFilter === 'spicy' ? 'bg-red-600 text-white border border-red-400' : 'bg-jungle-950 text-red-300 border border-red-500/30'}`}
+                  >
+                    <span>🌶️</span>
+                    <span>{isAr ? 'حار' : 'Spicy'}</span>
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* DISHES LIST / GRID (CLEAN SHOWCASE ONLY) */}
+            <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10">
+              {filteredDishes.length === 0 ? (
+                <div className="text-center py-16 glass-panel rounded-2xl max-w-md mx-auto p-8 border border-gold-500/20">
+                  <Icon name="search" className="w-12 h-12 text-gold-400/60 mx-auto mb-3" />
+                  <p className="text-slate-300 font-semibold mb-2">{isAr ? 'لم نجد أطباق تطابق بحثك.' : 'No dishes match your search.'}</p>
+                  <button
+                    onClick={() => { setActiveCategory('all'); setSearchQuery(''); setActiveTagFilter('all'); }}
+                    className="px-4 py-2 rounded-xl bg-gold-500 text-obsidian-950 font-bold text-xs"
+                  >
+                    {isAr ? 'عرض الكل' : 'Show All'}
+                  </button>
+                </div>
+              ) : viewMode === 'grid' ? (
+                /* ================= GRID VIEW ================= */
+                <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                  {filteredDishes.map((dish) => (
+                    <div
+                      key={dish.id}
+                      className={`group glass-card rounded-2xl overflow-hidden flex flex-col justify-between ${!dish.inStock ? 'opacity-65 grayscale-[30%]' : ''}`}
+                    >
+                      {/* Pure Clean Meal Image - Or Elegant Luxury Culinary Placeholder if no image */}
+                      {dish.image ? (
+                        <div className="relative aspect-[16/11] sm:aspect-[4/3] w-full overflow-hidden bg-jungle-950">
+                          <img
+                            src={dish.image}
+                            alt={dish.nameEn}
+                            loading="lazy"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex';
+                            }}
+                          />
+                          <div className="hidden absolute inset-0 bg-gradient-to-br from-jungle-900 via-obsidian-900 to-jungle-950 flex-col items-center justify-center border-b border-gold-500/10">
+                            <div className="w-14 h-14 rounded-2xl bg-jungle-800/80 border border-gold-500/30 flex items-center justify-center text-gold-400 shadow-gold-glow-sm">
+                              <Icon name="utensils" className="w-7 h-7" />
+                            </div>
+                            <span className="text-[10px] text-gold-400/70 font-semibold mt-2">{isAr ? 'قائمة جانغل الفاخرة' : 'Jungle Cuisine'}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="relative aspect-[16/11] sm:aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-jungle-900 via-obsidian-900 to-jungle-950 flex flex-col items-center justify-center border-b border-gold-500/10">
+                          <div className="w-14 h-14 rounded-2xl bg-jungle-800/80 border border-gold-500/30 flex items-center justify-center text-gold-400 shadow-gold-glow-sm">
+                            <Icon name="utensils" className="w-7 h-7" />
+                          </div>
+                          <span className="text-[10px] text-gold-400/70 font-semibold mt-2">{isAr ? 'قائمة جانغل الفاخرة' : 'Jungle Cuisine'}</span>
+                        </div>
+                      )}
+
+                      {/* Content: Meal Name, Price, and Description */}
+                      <div className="p-3.5 sm:p-5 flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="font-bold text-sm sm:text-base text-slate-100 group-hover:text-gold-300 transition-colors leading-snug">
+                              {isAr ? dish.nameAr : dish.nameEn}
+                            </h3>
+                            <span className="font-black text-gold-300 text-sm sm:text-base flex-shrink-0">
+                              {formatPrice(dish.price)}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gold-400/80 font-medium mt-0.5 truncate">
+                            {isAr ? dish.nameEn : dish.nameAr}
+                          </p>
+                          {dish.descAr && (
+                            <p className="text-[11px] sm:text-xs text-slate-400 mt-2 line-clamp-2 leading-relaxed">
+                              {isAr ? dish.descAr : dish.descEn}
+                            </p>
+                          )}
+                        </div>
+
+                        {!dish.inStock && (
+                          <div className="mt-3 pt-2 border-t border-slate-800/80">
+                            <span className="text-[10px] text-red-400 font-bold">
+                              {isAr ? '● نفذت الكمية حالياً' : '● Sold Out'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* ================= LIST VIEW ================= */
+                <div className="space-y-3 max-w-4xl mx-auto">
+                  {filteredDishes.map((dish) => (
+                    <div
+                      key={dish.id}
+                      className={`glass-card rounded-2xl p-3 sm:p-4 border border-gold-500/15 flex items-center gap-3 sm:gap-4 transition ${!dish.inStock ? 'opacity-65' : ''}`}
+                    >
+                      {dish.image ? (
+                        <img
+                          src={dish.image}
+                          alt={dish.nameEn}
+                          className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover border border-gold-500/30 flex-shrink-0"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className={`${dish.image ? 'hidden' : 'flex'} w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-jungle-900 border border-gold-500/20 items-center justify-center text-gold-400/80 flex-shrink-0`}>
+                        <Icon name="utensils" className="w-7 h-7" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-bold text-xs sm:text-base text-slate-100 truncate">
+                            {isAr ? dish.nameAr : dish.nameEn}
+                          </h3>
+                          <span className="font-black text-gold-300 text-xs sm:text-base flex-shrink-0">
+                            {formatPrice(dish.price)}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gold-400/80 font-medium truncate">
+                          {isAr ? dish.nameEn : dish.nameAr}
+                        </p>
+                        <p className="text-[11px] sm:text-xs text-slate-400 mt-1 line-clamp-1">
+                          {isAr ? dish.descAr : dish.descEn}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </main>
+
+          {/* ========================================================
+             MOBILE BOTTOM NAVIGATION BAR
+             ======================================================== */}
+
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-jungle-950/95 backdrop-blur-xl border-t border-gold-500/30 px-3 py-2 shadow-2xl pb-[calc(env(safe-area-inset-bottom,0px)+8px)]">
+            <div className="flex items-center justify-around text-center">
+              {/* Menu Tab */}
+              <button
+                onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                className="flex flex-col items-center text-slate-300 hover:text-gold-300 transition py-1"
+              >
+                <Icon name="utensils" className="w-5 h-5 text-gold-400" />
+                <span className="text-[10px] font-semibold mt-1">{isAr ? 'القائمة' : 'Menu'}</span>
+              </button>
+
+              {/* Search Quick Tab */}
+              <button
+                onClick={() => {
+                  window.scrollTo({ top: 380, behavior: 'smooth' });
+                  setTimeout(() => { if (searchInputRef.current) searchInputRef.current.focus(); }, 350);
+                }}
+                className="flex flex-col items-center text-slate-300 hover:text-gold-300 transition py-1"
+              >
+                <Icon name="search" className="w-5 h-5" />
+                <span className="text-[10px] font-semibold mt-1">{isAr ? 'بحث' : 'Search'}</span>
+              </button>
+
+              {/* Language Switch */}
+              <button
+                onClick={() => setLang(prev => prev === 'en' ? 'ar' : 'en')}
+                className="flex flex-col items-center text-slate-300 hover:text-gold-300 transition py-1"
+              >
+                <Icon name="globe" className="w-5 h-5" />
+                <span className="text-[10px] font-semibold mt-1">{lang === 'en' ? 'عربي' : 'EN'}</span>
+              </button>
+            </div>
+          </div>
+
+
+          {/* ========================================================
+             DISH DETAIL POPUP MODAL
+             ======================================================== */}
+          {selectedDishDetail && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-md">
+              <div className="max-w-md sm:max-w-lg w-full glass-panel bg-jungle-950/98 border border-gold-500/40 rounded-3xl overflow-hidden shadow-2xl relative max-h-[90vh] flex flex-col">
+                <button
+                  onClick={() => setSelectedDishDetail(null)}
+                  className="absolute top-3 right-3 rtl:right-auto rtl:left-3 z-20 p-2 rounded-full bg-black/70 text-slate-300 hover:text-white border border-white/20"
+                >
+                  <Icon name="x" className="w-5 h-5" />
+                </button>
+
+                {selectedDishDetail.image ? (
+                  <div className="relative aspect-video w-full bg-jungle-950 flex-shrink-0">
+                    <img
+                      src={selectedDishDetail.image}
+                      alt={selectedDishDetail.nameEn}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-jungle-950 via-transparent to-black/40"></div>
+                    <div className="absolute bottom-3 left-3 rtl:left-auto rtl:right-3">
+                      <span className="glass-panel px-3.5 py-1 rounded-full text-gold-300 font-black text-base sm:text-lg border border-gold-500/50 shadow-gold-glow">
+                        {formatPrice(selectedDishDetail.price)}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative aspect-video w-full bg-gradient-to-br from-jungle-900 via-obsidian-900 to-jungle-950 flex flex-col items-center justify-center border-b border-gold-500/20 flex-shrink-0">
+                    <div className="w-16 h-16 rounded-2xl bg-jungle-800/80 border border-gold-500/30 flex items-center justify-center text-gold-400 shadow-gold-glow-sm">
+                      <Icon name="utensils" className="w-8 h-8" />
+                    </div>
+                    <span className="text-xs text-gold-400/80 font-semibold mt-2">{isAr ? 'قائمة جانغل الفاخرة' : 'Jungle Cuisine'}</span>
+                    <div className="absolute bottom-3 left-3 rtl:left-auto rtl:right-3">
+                      <span className="glass-panel px-3.5 py-1 rounded-full text-gold-300 font-black text-base sm:text-lg border border-gold-500/50 shadow-gold-glow">
+                        {formatPrice(selectedDishDetail.price)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+                  <div className="flex flex-wrap gap-1.5 mb-2.5">
+                    {selectedDishDetail.isChefSpecial && (
+                      <span className="bg-gold-500/20 text-gold-300 text-[10px] px-2 py-0.5 rounded font-bold border border-gold-500/40">
+                        ★ {isAr ? 'لمسة الشيف' : 'Chef'}
+                      </span>
+                    )}
+                    {selectedDishDetail.isBestSeller && (
+                      <span className="bg-amber-500/20 text-amber-300 text-[10px] px-2 py-0.5 rounded font-bold border border-amber-500/40">
+                        🔥 {isAr ? 'الأكثر طلباً' : 'Best'}
+                      </span>
+                    )}
+                    {selectedDishDetail.isVegetarian && (
+                      <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded font-bold border border-emerald-500/40">
+                        🌿 {isAr ? 'نباتي' : 'Veg'}
+                      </span>
+                    )}
+                    {selectedDishDetail.isSpicy && (
+                      <span className="bg-red-500/20 text-red-300 text-[10px] px-2 py-0.5 rounded font-bold border border-red-500/40">
+                        🌶️ {isAr ? 'حار' : 'Spicy'}
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-lg sm:text-2xl font-black text-slate-100">
+                    {isAr ? selectedDishDetail.nameAr : selectedDishDetail.nameEn}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-gold-400 font-medium mt-0.5">
+                    {isAr ? selectedDishDetail.nameEn : selectedDishDetail.nameAr}
+                  </p>
+                  <p className="text-xs sm:text-sm text-slate-300 mt-2.5 leading-relaxed">
+                    {isAr ? selectedDishDetail.descAr : selectedDishDetail.descEn}
+                  </p>
+
+                  <div className="mt-5 pt-3 border-t border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">{isAr ? 'السعر' : 'Price'}</span>
+                      <span className="text-base sm:text-lg font-black text-gold-300">{formatPrice(selectedDishDetail.price)}</span>
+                    </div>
+
+                    <span className={`text-xs px-3 py-1 rounded-full font-bold border ${selectedDishDetail.inStock ? 'bg-emerald-950 text-emerald-300 border-emerald-500/40' : 'bg-red-950 text-red-300 border-red-500/40'}`}>
+                      {selectedDishDetail.inStock ? (isAr ? 'متوفر حالياً' : 'In Stock') : (isAr ? 'نفذت الكمية' : 'Sold Out')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* LUXURY FOOTER (Logo + Name + Exact Address + Copyright) */}
+          <footer className="border-t border-gold-500/20 bg-jungle-950 py-8 sm:py-10 px-3 sm:px-6 lg:px-8 text-xs text-slate-400">
+            <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left rtl:md:text-right">
+              <div className="flex items-center space-x-3 rtl:space-x-reverse justify-center md:justify-start">
+                {settings.logoUrl ? (
+                  <img
+                    src={settings.logoUrl}
+                    alt="Logo"
+                    className="w-12 h-12 rounded-full border border-gold-500/40 object-cover"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : null}
+                <div>
+                  <h4 className="font-bold text-slate-200 tracking-wider text-sm uppercase">
+                    {isAr ? settings.restaurantNameAr : settings.restaurantNameEn}
+                  </h4>
+                  <p className="text-[11px] text-slate-300 font-medium mt-0.5">{isAr ? settings.addressAr : settings.addressEn}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center text-[11px] text-slate-500">
+                <span>© 2026 {isAr ? settings.restaurantNameAr : settings.restaurantNameEn}. {isAr ? 'جميع الحقوق محفوظة' : 'All rights reserved'}.</span>
+              </div>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    // Render React App
+    const rootElement = document.getElementById('root');
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(<JungleLoungeApp />);
+  </script>
+</body>
+
+</html>
