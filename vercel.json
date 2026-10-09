@@ -1,0 +1,21 @@
+{
+  "framework": null,
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @workspace/jungle-rooftop build",
+  "outputDirectory": "artifacts/jungle-rooftop/dist/public",
+  "rewrites": [
+    {
+      "source": "/admin",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/admin/",
+      "destination": "/admin/index.html"
+    }
+  ],
+  "functions": {
+    "api/[...path].ts": {
+      "maxDuration": 30
+    }
+  }
+}

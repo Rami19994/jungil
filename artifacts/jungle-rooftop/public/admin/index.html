@@ -273,13 +273,10 @@
       const [lang, setLang] = useState('ar');
       const isAr = lang === 'ar';
 
-      // Authentication state with sessionStorage persistence
-      const [isAuthenticated, setIsAuthenticated] = useState(() => {
-        return sessionStorage.getItem('jungle_admin_auth') === 'true';
-      });
+      const [isAuthenticated, setIsAuthenticated] = useState(false);
       const [adminUsername, setAdminUsername] = useState('');
       const [adminPassword, setAdminPassword] = useState('');
-      const [loginError, setLoginError] = useState(false);
+      const [loginError, setLoginError] = useState('');
 
       // Data States
       const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -387,6 +384,23 @@
       const syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('jungle_sync') : null;
 
       useEffect(() => {
+        let cancelled = false;
+        fetch('/api/admin/session', { cache: 'no-store' })
+          .then((response) => response.json())
+          .then((data) => {
+            if (!cancelled && data.authenticated === true) {
+              setIsAuthenticated(true);
+            }
+          })
+          .catch((error) => {
+            console.error('Could not verify the admin session:', error);
+          });
+        return () => {
+          cancelled = true;
+        };
+      }, []);
+
+      useEffect(() => {
         if (isAuthenticated) {
           loadData();
         }
@@ -398,23 +412,43 @@
       }, [lang, isAr]);
 
       // Handle Login
-      const handleLogin = (e) => {
+      const handleLogin = async (e) => {
         e.preventDefault();
-        if (adminUsername.trim() === 'admin' && adminPassword.trim() === '123456') {
-          setIsAuthenticated(true);
-          sessionStorage.setItem('jungle_admin_auth', 'true');
-          setLoginError(false);
-          setAdminPassword('');
-          showToast(isAr ? 'مرحباً بك في لوحة الإدارة التنفيذية' : 'Welcome to Executive Admin');
-        } else {
-          setLoginError(true);
+        setLoginError('');
+        try {
+          const response = await fetch('/api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: adminUsername.trim(),
+              password: adminPassword,
+            }),
+          });
+          if (response.ok) {
+            setIsAuthenticated(true);
+            setAdminPassword('');
+            showToast(isAr ? 'مرحباً بك في لوحة الإدارة التنفيذية' : 'Welcome to Executive Admin');
+            return;
+          }
+          setLoginError(
+            response.status === 503
+              ? (isAr ? 'لم يتم إعداد تسجيل دخول الإدارة على الخادم' : 'Admin login is not configured on the server')
+              : (isAr ? 'اسم المستخدم أو كلمة المرور غير صحيحة' : 'Invalid username or password'),
+          );
+        } catch (error) {
+          console.error('Admin login request failed:', error);
+          setLoginError(isAr ? 'تعذر الاتصال بالخادم' : 'Could not reach the server');
         }
       };
 
       // Handle Logout
-      const handleLogout = () => {
+      const handleLogout = async () => {
+        try {
+          await fetch('/api/admin/logout', { method: 'POST' });
+        } catch (error) {
+          console.error('Admin logout request failed:', error);
+        }
         setIsAuthenticated(false);
-        sessionStorage.removeItem('jungle_admin_auth');
         showToast(isAr ? 'تم تسجيل الخروج بنجاح' : 'Logged out');
       };
 
@@ -913,7 +947,7 @@
               <form onSubmit={handleLogin} className="space-y-4">
                 {loginError && (
                   <div className="p-3 rounded-xl bg-red-950/80 border border-red-500/40 text-red-300 text-xs text-center font-bold">
-                    {isAr ? 'اسم المستخدم أو كلمة المرور غير صحيحة' : 'Invalid username or password'}
+                    {loginError}
                   </div>
                 )}
 
@@ -923,7 +957,8 @@
                     type="text"
                     value={adminUsername}
                     onChange={(e) => setAdminUsername(e.target.value)}
-                    placeholder="admin"
+                    placeholder={isAr ? 'اسم المستخدم' : 'Admin username'}
+                    autoComplete="username"
                     required
                     className="w-full bg-jungle-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-gold-400"
                   />
@@ -936,6 +971,7 @@
                     value={adminPassword}
                     onChange={(e) => setAdminPassword(e.target.value)}
                     placeholder="••••••"
+                    autoComplete="current-password"
                     required
                     className="w-full bg-jungle-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-gold-400"
                   />

@@ -30,10 +30,17 @@ pnpm run typecheck
 
 The workspace also contains an Express API in `artifacts/api-server`, shared database/API packages in `lib`, and a separate UI mockup in `artifacts/mockup-sandbox`. The API service uses PostgreSQL and requires `DATABASE_URL`; configure it through a local environment file that is not committed.
 
-## Security notice
+## Deploy on Vercel
 
-The admin page currently uses a demo credential check in client-side code. This is not authentication: anyone who can access the page or source can inspect or bypass it. Do not use the admin page with real data or deploy it publicly until authentication and authorization are implemented on a trusted server. Never put production passwords, API keys, database files, or user-uploaded/private data in this repository.
+1. Create a hosted PostgreSQL database and set `DATABASE_URL` in Vercel for Production and any Preview/Development environments that should use a database.
+2. Set `ADMIN_USERNAME`, `ADMIN_PASSWORD` (at least 12 characters; a long, unique password is recommended), and `SESSION_SECRET` (at least 32 characters) in Vercel's Environment Variables. Generate a secret with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"`.
+3. Before the first deployment, apply the database schema from a trusted machine with `pnpm --filter @workspace/db push` and `DATABASE_URL` set in that shell. Do not run schema changes automatically during every deployment.
+4. Import this repository into Vercel. `vercel.json` builds the menu and routes `/api/*` to the Express serverless function. The public menu and `/admin` share the same domain; API writes require the server-side admin session.
+
+The API stores menu image data in PostgreSQL. Vercel function requests have a 4 MB JSON limit in this project, so large backup restores or image payloads may need to be reduced. For larger media, use object storage rather than storing image data in the database.
+
+Never commit production passwords, session secrets, database URLs, or user-uploaded/private data. Use Vercel's encrypted environment-variable settings and keep local values in an ignored `.env` file.
 
 ## Repository hygiene
 
-Local environment files, deployment state, generated build output, and the legacy `.migration-backup` archive are excluded by `.gitignore`. Keep real secrets in your deployment provider's secret/environment-variable settings.
+Local environment files, deployment state, generated build output, and the legacy `.migration-backup` archive are excluded by `.gitignore`. `.env.example` lists the required variable names without containing secrets.

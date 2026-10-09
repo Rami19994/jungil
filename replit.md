@@ -1,6 +1,4 @@
-# [Project name]
-
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+# Jungle Rooftop & Lounge
 
 ## Run & Operate
 
@@ -9,7 +7,8 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required environment variables: `DATABASE_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` (minimum 12 characters), and `SESSION_SECRET` (minimum 32 characters).
+- Vercel setup and deployment steps are documented in `README.md`; the API runs as a serverless function configured by `vercel.json`.
 
 ## Stack
 
@@ -22,24 +21,26 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/jungle-rooftop` — public menu UI and admin page.
+- `artifacts/api-server` — Express API, routes, and admin-session authorization.
+- `lib/db` — PostgreSQL schema, Drizzle ORM, and connection pool.
+- `lib/api-zod` — shared request/response validation schemas.
+- `api/[...path].ts` — Vercel serverless entry point; initializes default menu data before serving API requests.
+- `vercel.json` — Vercel build, static output, routes, and function settings.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Public menu read endpoints remain unauthenticated; all API write methods require a signed, HttpOnly admin session.
+- Admin credentials and session signing secret are configured only as server environment variables.
+- The Vercel serverless API uses a small PostgreSQL connection pool to reduce connections across function instances.
+- Database schema changes are applied explicitly with Drizzle Kit, not during deployment.
 
-## Product
+## Security and deployment notes
 
-_Describe the high-level user-facing capabilities of this app once they exist._
-
-## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Set `DATABASE_URL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `SESSION_SECRET` in Vercel before deploying. Never commit actual values.
+- Use a strong, unique admin password and generate a random session secret of at least 32 characters.
+- Vercel API JSON requests are limited to 4 MB; menu image data is stored in PostgreSQL.
 
 ## Pointers
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- See `README.md` for local setup and full Vercel deployment instructions.

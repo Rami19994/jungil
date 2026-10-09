@@ -4,6 +4,7 @@ import express, {
 } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import adminAuthRouter, { requireAdminForWrites } from "./routes/admin-auth";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -29,9 +30,11 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json({ limit: "50mb" }));
+app.use(express.json({ limit: process.env.VERCEL === "1" ? "4mb" : "50mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+app.use("/api", adminAuthRouter);
+app.use("/api", requireAdminForWrites);
 app.use("/api", router);
 const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
   if (res.headersSent) {
@@ -39,8 +42,22 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, next) => {
     return;
   }
   logger.error({ err }, "API request failed");
-  res.status(500).json({
-    error: err instanceof Error ? err.message : "Internal server error",
+  const statusCode =
+    typeof err === "object" &&
+    err !== null &&
+    "status" in err &&
+    typeof err.status === "number" &&
+    err.status >= 400 &&
+    err.status < 500
+      ? err.status
+      : 500;
+  res.status(statusCode).json({
+    error:
+      statusCode === 413
+        ? "Request body too large."
+        : err instanceof Error
+          ? err.message
+          : "Internal server error",
   });
 };
 
