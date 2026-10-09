@@ -639,7 +639,7 @@
             const updateResult = await res.json().catch(() => ({}));
             const updatedImage = updateResult.image || finalImage;
             setDishes(prev => prev.map(d => d.id === editingDish.id ? { ...d, ...dishData, image: updatedImage } : d));
-            showToast(isAr ? 'تم تحديث الوجبة والصورة بنجاح ' : 'Dish updated in SQLite 3 database');
+            showToast(isAr ? 'تم تحديث الوجبة والصورة بنجاح في قاعدة البيانات' : 'Dish updated in database');
           } else {
             const newId = `dish-${Date.now()}`;
             const res = await fetch('/api/dishes', {
@@ -655,7 +655,7 @@
             const savedId = addResult.id || newId;
             const savedImage = addResult.image || finalImage;
             setDishes(prev => [{ ...dishData, id: savedId, image: savedImage }, ...prev]);
-            showToast(isAr ? 'تمت إضافة الوجبة وحفظها  ' : 'New dish added to SQLite 3 database');
+            showToast(isAr ? 'تمت إضافة الوجبة وحفظها في قاعدة البيانات' : 'New dish added to database');
           }
 
           setIsDishModalOpen(false);
@@ -702,7 +702,7 @@
             }
             setDishes([]);
             if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
-            showToast(isAr ? 'تم حذف جميع الأطباق بنجاح ' : 'All dishes cleared from SQLite 3');
+            showToast(isAr ? 'تم حذف جميع الأطباق نهائياً من قاعدة البيانات' : 'All dishes cleared permanently from database');
           } catch (err) {
             showToast(err.message || (isAr ? 'حدث خطأ في الاتصال' : 'Connection error'), 'error');
             await loadData();

@@ -1,7 +1,7 @@
 {
   "name": "jungle-rooftop-lounge",
   "version": "1.0.0",
-  "description": "Luxury Bilingual Digital Menu & Lounge Showcase with SQLite Database",
+  "description": "Luxury Bilingual Digital Menu & Lounge Showcase with TiDB Cloud Serverless & Vercel Blob",
   "main": "server.js",
   "engines": {
     "node": ">=22.x"
@@ -12,10 +12,11 @@
     "build": "node -e \"console.log('Build complete')\""
   },
   "dependencies": {
+    "@tidbcloud/serverless": "^0.3.0",
     "@vercel/blob": "^2.8.1",
     "cors": "^2.8.5",
-    "express": "^5.0.1",
-    "sqlite3": "^6.0.1"
+    "dotenv": "^18.0.6",
+    "express": "^5.0.1"
   },
   "keywords": [
     "restaurant",
@@ -24,7 +25,9 @@
     "rooftop",
     "bilingual",
     "luxury",
-    "sqlite",
+    "tidb",
+    "tidbcloud",
+    "mysql",
     "arabic",
     "english",
     "react",
