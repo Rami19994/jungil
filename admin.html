@@ -492,7 +492,7 @@
                 callback(uploadData.url);
                 if (setPreview) setPreview(uploadData.url);
                 setIsImageProcessing(false);
-                showToast(isAr ? 'تم تجهيز الصورة؛ ستُحفظ نهائياً عند حفظ التعديلات' : 'Image ready; it will be stored when you save your changes');
+                showToast(isAr ? 'تم تجهيز الصورة؛' : 'Image ready; it will be stored when you save your changes');
                 return;
               }
             }
@@ -522,7 +522,7 @@
             throw new Error(errData.error || 'Failed to save settings');
           }
           setSettings({ ...settingsForm });
-          showToast(isAr ? 'تم حفظ وتحديث بيانات المطعم فورياً في قاعدة البيانات' : 'Restaurant info saved');
+          showToast(isAr ? 'تم حفظ وتحديث بيانات ' : 'Restaurant info saved');
           if (syncChannel) syncChannel.postMessage({ type: 'SETTINGS_UPDATED', time: Date.now() });
         } catch (err) {
           showToast(err.message || (isAr ? 'حدث خطأ أثناء الحفظ' : 'Error saving settings'), 'error');
@@ -547,7 +547,7 @@
           setSettings(prev => ({ ...prev, logoUrl: '' }));
           setSettingsForm(prev => ({ ...prev, logoUrl: '' }));
           if (logoFileInputRef.current) logoFileInputRef.current.value = '';
-          showToast(isAr ? 'تم حذف الشعار نهائياً من قاعدة البيانات' : 'Logo deleted successfully');
+          showToast(isAr ? 'تم حذف الشعار بنجاح' : 'Logo deleted successfully');
           if (syncChannel) syncChannel.postMessage({ type: 'SETTINGS_UPDATED', time: Date.now() });
         } catch (err) {
           showToast(err.message || (isAr ? 'حدث خطأ أثناء حذف الشعار' : 'Error deleting logo'), 'error');
@@ -578,7 +578,7 @@
 
       const handleDeleteHeroBg = () => {
         if (!window.confirm(isAr ? 'هل تريد حذف صورة الخلفية؟' : 'Delete the background image?')) return;
-        saveHeroBg('', isAr ? 'تم حذف صورة الخلفية من قاعدة البيانات' : 'Background removed');
+        saveHeroBg('', isAr ? 'تم حذف صورة الخلفية ' : 'Background removed');
       };
 
       // Dishes: Add/Edit Modal Open
@@ -650,12 +650,12 @@
             });
             if (!res.ok) {
               const errData = await res.json().catch(() => ({}));
-              throw new Error(errData.error || (isAr ? 'فشل تحديث الوجبة في قاعدة البيانات' : 'Failed to update dish'));
+              throw new Error(errData.error || (isAr ? 'فشل تحديث الوجبة ' : 'Failed to update dish'));
             }
             const updateResult = await res.json().catch(() => ({}));
             const updatedImage = updateResult.image || finalImage;
             setDishes(prev => prev.map(d => d.id === editingDish.id ? { ...d, ...dishData, image: updatedImage } : d));
-            showToast(isAr ? 'تم تحديث الوجبة والصورة بنجاح في قاعدة البيانات SQLite 3' : 'Dish updated in SQLite 3 database');
+            showToast(isAr ? 'تم تحديث الوجبة والصورة بنجاح ' : 'Dish updated in SQLite 3 database');
           } else {
             const newId = `dish-${Date.now()}`;
             const res = await fetch('/api/dishes', {
@@ -665,13 +665,13 @@
             });
             if (!res.ok) {
               const errData = await res.json().catch(() => ({}));
-              throw new Error(errData.error || (isAr ? 'فشل إضافة الوجبة في قاعدة البيانات' : 'Failed to add dish'));
+              throw new Error(errData.error || (isAr ? 'فشل إضافة الوجبة ' : 'Failed to add dish'));
             }
             const addResult = await res.json().catch(() => ({}));
             const savedId = addResult.id || newId;
             const savedImage = addResult.image || finalImage;
             setDishes(prev => [{ ...dishData, id: savedId, image: savedImage }, ...prev]);
-            showToast(isAr ? 'تمت إضافة الوجبة وحفظها في قاعدة البيانات SQLite 3' : 'New dish added to SQLite 3 database');
+            showToast(isAr ? 'تمت إضافة الوجبة وحفظها  ' : 'New dish added to SQLite 3 database');
           }
 
           setIsDishModalOpen(false);
@@ -685,16 +685,16 @@
 
       // Delete Dish completely from SQLite 3 Database
       const handleDeleteDish = async (dishId) => {
-        if (window.confirm(isAr ? 'هل أنت متأكد من حذف هذه الوجبة نهائياً من قاعدة البيانات؟' : 'Permanently delete this dish from database?')) {
+        if (window.confirm(isAr ? 'هل أنت متأكد من حذف هذه الوجبة ؟' : 'Permanently delete this dish from database?')) {
           try {
             const res = await fetch(`/api/dishes/${dishId}`, { method: 'DELETE' });
             if (!res.ok) {
               const errData = await res.json().catch(() => ({}));
-              throw new Error(errData.error || (isAr ? 'فشل حذف الوجبة من قاعدة البيانات' : 'Failed to delete dish'));
+              throw new Error(errData.error || (isAr ? 'فشل حذف الوجبة ' : 'Failed to delete dish'));
             }
             setDishes(prev => prev.filter(d => d.id !== dishId));
             if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
-            showToast(isAr ? 'تم حذف الوجبة نهائياً من قاعدة البيانات SQLite 3' : 'Dish deleted permanently from database');
+            showToast(isAr ? 'تم حذف الوجبة  ' : 'Dish deleted permanently from database');
           } catch (err) {
             console.error('Delete error:', err);
             showToast(err.message || (isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting dish'), 'error');
@@ -709,7 +709,7 @@
           alert(isAr ? 'لا توجد أي أطباق حالياً لحذفها' : 'No dishes to delete');
           return;
         }
-        if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف جميع الأطباق الحالية؟ ستصبح القائمة فارغة تماماً لتتمكن من إدخال وجباتك الحقيقية.' : 'Are you sure you want to delete ALL current dishes to start clean with real data?')) {
+        if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف جميع الأطباق الحالية؟ ستصبح القائمة فارغة تماماً لتتمكن من إدخال وجباتك.' : 'Are you sure you want to delete ALL current dishes to start clean with real data?')) {
           try {
             const res = await fetch('/api/dishes/clear-all', { method: 'POST' });
             if (!res.ok) {
@@ -718,7 +718,7 @@
             }
             setDishes([]);
             if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
-            showToast(isAr ? 'تم حذف جميع الأطباق بنجاح من قاعدة البيانات SQLite 3' : 'All dishes cleared from SQLite 3');
+            showToast(isAr ? 'تم حذف جميع الأطباق بنجاح ' : 'All dishes cleared from SQLite 3');
           } catch (err) {
             showToast(err.message || (isAr ? 'حدث خطأ في الاتصال' : 'Connection error'), 'error');
             await loadData();
