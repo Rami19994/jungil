@@ -396,52 +396,19 @@
             localStorage.removeItem('jungle_cache');
           } catch (_) {}
 
-          // 1. Fetch live unified menu directly from SQLite 3
-          let loaded = false;
-          try {
-            const menuRes = await fetch(`/api/menu?t=${t}`, fetchOpts);
-            if (menuRes.ok) {
-              const menuData = await menuRes.json();
-              if (menuData) {
-                if (menuData.settings && Object.keys(menuData.settings).length > 0) {
-                  setSettings(menuData.settings);
-                }
-                if (Array.isArray(menuData.categories)) {
-                  setCategories(menuData.categories);
-                }
-                if (Array.isArray(menuData.dishes)) {
-                  setDishes(menuData.dishes);
-                }
-                loaded = true;
-              }
-            }
-          } catch (_) {}
-
-          // 2. Direct individual endpoints from SQLite 3 if unified was unavailable
-          if (!loaded) {
-            const [settingsRes, catsRes, dishesRes] = await Promise.all([
-              fetch(`/api/settings?t=${t}`, fetchOpts).catch(() => null),
-              fetch(`/api/categories?t=${t}`, fetchOpts).catch(() => null),
-              fetch(`/api/dishes?t=${t}`, fetchOpts).catch(() => null),
-            ]);
-
-            if (settingsRes && settingsRes.ok) {
-              const data = await settingsRes.json();
-              if (data && Object.keys(data).length > 0) setSettings(data);
-            }
-
-            if (catsRes && catsRes.ok) {
-              const data = await catsRes.json();
-              if (Array.isArray(data)) setCategories(data);
-            }
-
-            if (dishesRes && dishesRes.ok) {
-              const data = await dishesRes.json();
-              if (Array.isArray(data)) setDishes(data);
-            }
+          const menuRes = await fetch(`/api/menu?t=${t}`, fetchOpts);
+          const menuData = await menuRes.json();
+          if (!menuRes.ok) {
+            throw new Error(menuData.error || `Menu request failed (${menuRes.status})`);
           }
+          if (menuData.settings && Object.keys(menuData.settings).length > 0) {
+            setSettings(menuData.settings);
+          }
+          if (Array.isArray(menuData.categories)) setCategories(menuData.categories);
+          if (Array.isArray(menuData.dishes)) setDishes(menuData.dishes);
         } catch (err) {
           console.error('Error reading directly from SQLite 3 database:', err);
+          showToast(err.message || (isAr ? 'تعذّر تحميل بيانات القائمة' : 'Could not load menu data'), 'error');
         } finally {
           if (showLoading) setIsLoading(false);
         }

@@ -269,8 +269,25 @@ async function persistDatabase() {
     menuVersion = Date.now();
     return;
   }
+
+  const { list } = require('@vercel/blob');
+  const blobList = await list({ token: BLOB_TOKEN, prefix: dbFileName });
+  const targetBlob = blobList.blobs.find(blob => blob.pathname === dbFileName);
+  const latestBlobVersion = targetBlob ? getBlobVersion(targetBlob) : null;
+
+  if (latestBlobVersion !== currentBlobVersion) {
+    if (targetBlob) {
+      await restoreLatestDatabaseFromBlob();
+    }
+    const conflict = new Error(
+      'Could not safely save because the shared menu changed or disappeared on another Vercel instance. Reload the menu and retry.'
+    );
+    conflict.statusCode = 409;
+    throw conflict;
+  }
+
   await syncDbToBlob();
-  menuVersion = Date.now();
+  menuVersion = currentBlobVersion || Date.now();
 }
 
 // Initialize SQLite 3 Tables
@@ -292,6 +309,7 @@ async function initDatabase() {
         }
         fs.writeFileSync(dbPath, buf);
         currentBlobVersion = getBlobVersion(targetBlob);
+        menuVersion = currentBlobVersion;
         console.log(`☁️ Restored database from Vercel Blob (${buf.length} bytes)`);
       }
     }
@@ -413,6 +431,7 @@ async function restoreLatestDatabaseFromBlob() {
     openDatabase();
     await dbGet('PRAGMA schema_version');
     currentBlobVersion = blobVersion;
+    menuVersion = blobVersion;
     console.log(`☁️ Refreshed database from Vercel Blob (${buffer.length} bytes)`);
   } catch (err) {
     if (!db && fs.existsSync(dbPath)) openDatabase();
@@ -477,12 +496,16 @@ app.get('/api/health', (req, res) => {
     runtime: isVercel ? 'vercel' : 'local',
     storage: isVercel ? (BLOB_TOKEN ? 'vercel-blob' : 'unconfigured') : 'sqlite',
     persistentStorageConfigured,
+    concurrentWritesSafe: !isVercel,
+    storageWarning: isVercel && BLOB_TOKEN
+      ? 'Vercel Blob persistence is best-effort; concurrent writes across serverless instances are not transactionally protected.'
+      : null,
   });
 });
 
 // 0.0 GET Live Menu Version for instant cross-device updates without page reload
 app.get('/api/menu-version', (req, res) => {
-  res.json({ version: menuVersion, timestamp: new Date().toISOString() });
+  res.json({ version: currentBlobVersion || menuVersion, timestamp: new Date().toISOString() });
 });
 
 // 0. GET Full Menu in 1 Call directly from SQLite 3
@@ -505,7 +528,13 @@ app.get('/api/menu', async (req, res) => {
       inStock: Boolean(d.inStock),
     }));
 
-    res.json({ settings, categories, dishes, updatedAt: new Date().toISOString() });
+    res.json({
+      settings,
+      categories,
+      dishes,
+      version: currentBlobVersion || menuVersion,
+      updatedAt: new Date().toISOString(),
+    });
   } catch (err) {
     console.error('SQLite 3 /api/menu error:', err);
     res.status(500).json({ error: err.message });
@@ -560,7 +589,7 @@ app.post('/api/settings', async (req, res) => {
     res.json({ success: true, message: 'Settings updated successfully in SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 settings update error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -590,7 +619,7 @@ app.post('/api/categories', async (req, res) => {
     res.json({ success: true, id: catId });
   } catch (err) {
     console.error('SQLite 3 category save error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -607,7 +636,7 @@ app.delete('/api/categories/:id', async (req, res) => {
     res.json({ success: true, message: 'Category deleted cleanly from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 category delete error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -622,7 +651,7 @@ app.post('/api/categories/clear-all', async (req, res) => {
     res.json({ success: true, message: 'All categories cleared cleanly from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 clear-all categories error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -686,7 +715,7 @@ app.post('/api/dishes', async (req, res) => {
     res.json({ success: true, id: dishId, image: finalImageUrl });
   } catch (err) {
     console.error('SQLite 3 add dish error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -781,7 +810,7 @@ app.put('/api/dishes/:id', async (req, res) => {
     res.json({ success: true, message: 'Dish updated cleanly in SQLite 3', id: dishId, image: finalImageUrl });
   } catch (err) {
     console.error('SQLite 3 update dish error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -802,7 +831,7 @@ app.delete('/api/dishes/:id', async (req, res) => {
     res.json({ success: true, message: 'Dish deleted completely from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 delete dish error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -821,7 +850,7 @@ app.post('/api/dishes/clear-all', async (req, res) => {
     res.json({ success: true, message: 'All dishes and their images cleared completely from SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 clear-all error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -894,7 +923,7 @@ app.post('/api/reset', async (req, res) => {
     res.json({ success: true, message: 'Database reset to clean state with 0 dishes' });
   } catch (err) {
     console.error('SQLite 3 reset error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 
@@ -971,7 +1000,7 @@ app.post('/api/restore', async (req, res) => {
     res.json({ success: true, message: 'Data restored successfully to SQLite 3 database' });
   } catch (err) {
     console.error('SQLite 3 restore error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 

@@ -335,7 +335,7 @@
       const dishImageFileInputRef = useRef(null);
       const backupFileInputRef = useRef(null);
 
-      // Load Data from SQLite 3 Backend (Fast & Real-time directly from database)
+      // Load one consistent snapshot of all server-persisted data.
       const loadData = async () => {
         try {
           setIsLoading(true);
@@ -348,36 +348,20 @@
             },
           };
 
-          // Wipe any stale browser cache
-          try {
-            localStorage.removeItem('jungle_cache');
-          } catch (_) {}
-
-          const [settingsRes, catsRes, dishesRes] = await Promise.all([
-            fetch(`/api/settings?t=${t}`, fetchOpts).catch(() => null),
-            fetch(`/api/categories?t=${t}`, fetchOpts).catch(() => null),
-            fetch(`/api/dishes?t=${t}`, fetchOpts).catch(() => null),
-          ]);
-
-          if (settingsRes && settingsRes.ok) {
-            const data = await settingsRes.json();
-            if (Object.keys(data).length > 0) {
-              setSettings(data);
-              setSettingsForm(data);
-            }
+          const response = await fetch(`/api/menu?t=${t}`, fetchOpts);
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || (isAr ? 'تعذّر تحميل بيانات القائمة المحفوظة' : 'Could not load saved menu data'));
           }
-
-          if (catsRes && catsRes.ok) {
-            const data = await catsRes.json();
-            if (Array.isArray(data)) setCategories(data);
+          if (data.settings && Object.keys(data.settings).length > 0) {
+            setSettings(data.settings);
+            setSettingsForm(data.settings);
           }
-
-          if (dishesRes && dishesRes.ok) {
-            const data = await dishesRes.json();
-            if (Array.isArray(data)) setDishes(data);
-          }
+          if (Array.isArray(data.categories)) setCategories(data.categories);
+          if (Array.isArray(data.dishes)) setDishes(data.dishes);
         } catch (err) {
           console.error('Error fetching admin data from SQLite 3:', err);
+          showToast(err.message || (isAr ? 'تعذّر تحميل بيانات القائمة' : 'Could not load menu data'), 'error');
         } finally {
           setIsLoading(false);
         }
