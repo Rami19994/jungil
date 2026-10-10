@@ -672,6 +672,9 @@ app.get('/admin', (req, res) => {
 
 // Catch-all to serve customer menu index.html
 app.use((req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
