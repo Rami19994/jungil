@@ -881,18 +881,15 @@
                         <div>
                           <div className="flex items-start justify-between gap-2">
                             <h3 className="font-bold text-sm sm:text-base text-slate-100 group-hover:text-gold-300 transition-colors leading-snug">
-                              {isAr ? dish.nameAr : dish.nameEn}
+                              {isAr ? (dish.nameAr || dish.nameEn) : (dish.nameEn || dish.nameAr)}
                             </h3>
                             <span className="font-black text-gold-300 text-sm sm:text-base flex-shrink-0">
                               {formatPrice(dish.price)}
                             </span>
                           </div>
-                          <p className="text-[11px] text-gold-400/80 font-medium mt-0.5 truncate">
-                            {isAr ? dish.nameEn : dish.nameAr}
-                          </p>
-                          {(dish.descAr || dish.descEn) && (
+                          {(isAr ? dish.descAr : dish.descEn) && (
                             <p className="text-[11px] sm:text-xs text-slate-400 mt-2 line-clamp-2 leading-relaxed">
-                              {isAr ? (dish.descAr || dish.descEn) : (dish.descEn || dish.descAr)}
+                              {isAr ? dish.descAr : dish.descEn}
                             </p>
                           )}
                         </div>
@@ -939,18 +936,15 @@
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <h3 className="font-bold text-xs sm:text-base text-slate-100 group-hover:text-gold-300 transition-colors truncate">
-                            {isAr ? dish.nameAr : dish.nameEn}
+                            {isAr ? (dish.nameAr || dish.nameEn) : (dish.nameEn || dish.nameAr)}
                           </h3>
                           <span className="font-black text-gold-300 text-xs sm:text-base flex-shrink-0">
                             {formatPrice(dish.price)}
                           </span>
                         </div>
-                        <p className="text-[11px] text-gold-400/80 font-medium truncate">
-                          {isAr ? dish.nameEn : dish.nameAr}
-                        </p>
-                        {(dish.descAr || dish.descEn) && (
+                        {(isAr ? dish.descAr : dish.descEn) && (
                           <p className="text-[11px] sm:text-xs text-slate-400 mt-1 line-clamp-1 leading-relaxed">
-                            {isAr ? (dish.descAr || dish.descEn) : (dish.descEn || dish.descAr)}
+                            {isAr ? dish.descAr : dish.descEn}
                           </p>
                         )}
                       </div>
@@ -1091,14 +1085,11 @@
                     )}
                   </div>
 
-                  {/* Dish Title & Subtitle */}
+                  {/* Dish Title */}
                   <div>
                     <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-100 leading-snug">
-                      {isAr ? selectedDishDetail.nameAr : selectedDishDetail.nameEn}
+                      {isAr ? (selectedDishDetail.nameAr || selectedDishDetail.nameEn) : (selectedDishDetail.nameEn || selectedDishDetail.nameAr)}
                     </h3>
-                    <p className="text-xs sm:text-sm text-gold-400 font-semibold mt-1">
-                      {isAr ? selectedDishDetail.nameEn : selectedDishDetail.nameAr}
-                    </p>
                   </div>
 
                   {/* DEDICATED MEAL DESCRIPTION BOX (شرح الوجبة تحت الصورة) */}
@@ -1108,20 +1099,11 @@
                       <span>{isAr ? 'شرح الوجبة والمكونات' : 'Meal Description & Ingredients'}</span>
                     </div>
 
-                    {/* Primary Description */}
+                    {/* Primary Description in active language only */}
                     <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-normal whitespace-pre-line">
                       {(isAr ? selectedDishDetail.descAr : selectedDishDetail.descEn) ||
-                       (isAr ? selectedDishDetail.descEn : selectedDishDetail.descAr) ||
                        (isAr ? 'وجبة فاخرة محضرة بعناية من أجود المكونات الطازجة لدى جانغل لاونج.' : 'Exquisite luxury offering carefully prepared with the freshest ingredients at Jungle Lounge.')}
                     </p>
-
-                    {/* Secondary Description in the other language if available */}
-                    {((isAr && selectedDishDetail.descEn && selectedDishDetail.descAr) ||
-                      (!isAr && selectedDishDetail.descAr && selectedDishDetail.descEn)) && (
-                      <p className="text-[11px] sm:text-xs text-slate-400 italic pt-2 border-t border-slate-800/80 leading-relaxed">
-                        {isAr ? selectedDishDetail.descEn : selectedDishDetail.descAr}
-                      </p>
-                    )}
                   </div>
 
                   {/* Modal Footer: Price & Close Button */}
