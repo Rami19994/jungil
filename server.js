@@ -294,33 +294,55 @@ app.post('/api/categories', async (req, res) => {
   }
 });
 
-// 6. Category (DELETE Hard Delete)
+// 6. Category (DELETE Hard Delete with Cascade to Dishes & Subcategories)
 app.delete('/api/categories/:id', async (req, res) => {
   try {
     const catId = req.params.id;
 
-    // Reset parentId for any subcategories referencing this category
-    await db.run('UPDATE categories SET parentId = NULL WHERE parentId = ?', [catId]);
-    // Unassign category from dishes
-    await db.run("UPDATE dishes SET categoryId = '' WHERE categoryId = ?", [catId]);
+    // 1. Find all child subcategories if this category is a parent
+    const childCats = await db.all('SELECT id FROM categories WHERE parentId = ?', [catId]);
+    const targetCatIds = [catId, ...childCats.map(c => c.id)];
+
+    // 2. Delete all dishes/drinks belonging to this category and its subcategories, and remove their images
+    for (const cId of targetCatIds) {
+      const dishesToDelete = await db.all('SELECT image FROM dishes WHERE categoryId = ?', [cId]);
+      for (const dish of dishesToDelete) {
+        if (dish.image) {
+          deleteImageFile(dish.image);
+        }
+      }
+      await db.run('DELETE FROM dishes WHERE categoryId = ?', [cId]);
+    }
+
+    // 3. Delete child subcategories
+    await db.run('DELETE FROM categories WHERE parentId = ?', [catId]);
+
+    // 4. Delete the category itself
     await db.run('DELETE FROM categories WHERE id = ?', [catId]);
 
     menuVersion = Date.now();
-    res.json({ success: true, message: 'Category permanently deleted from TiDB Cloud' });
+    res.json({
+      success: true,
+      message: 'Category and all associated dishes/drinks deleted permanently from TiDB Cloud'
+    });
   } catch (err) {
     console.error('Error deleting category:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 7. Clear All Categories
+// 7. Clear All Categories (and their associated dishes)
 app.post('/api/categories/clear-all', async (req, res) => {
   try {
-    await db.run("UPDATE dishes SET categoryId = ''");
+    const allDishes = await db.all('SELECT image FROM dishes');
+    for (const dish of allDishes) {
+      if (dish.image) deleteImageFile(dish.image);
+    }
+    await db.run('DELETE FROM dishes');
     await db.run('DELETE FROM categories');
 
     menuVersion = Date.now();
-    res.json({ success: true, message: 'All categories deleted permanently from TiDB Cloud' });
+    res.json({ success: true, message: 'All categories and dishes deleted permanently from TiDB Cloud' });
   } catch (err) {
     console.error('Error clearing categories:', err);
     res.status(500).json({ error: err.message });

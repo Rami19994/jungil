@@ -807,19 +807,35 @@
         }
       };
 
-      // Delete Category (unrestricted - user can delete any and all categories)
+      // Delete Category (cascading delete: removes all associated dishes/drinks and subcategories)
       const handleDeleteCategory = async (catId) => {
-        if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف هذا التصنيف؟ ستبقى أطباقه معروضة ضمن "جميع التصنيفات"' : 'Delete this category? Dishes will remain under All Categories.')) {
+        const cat = categories.find(c => c.id === catId);
+        const catName = cat ? (isAr ? cat.nameAr : cat.nameEn) : '';
+        const childCats = categories.filter(c => c.parentId === catId);
+        const targetCatIds = [catId, ...childCats.map(c => c.id)];
+        const affectedDishesCount = dishes.filter(d => targetCatIds.includes(d.categoryId)).length;
+
+        const confirmMsg = isAr
+          ? `هل أنت متأكد من حذف تصنيف "${catName}"؟ سيتم حذف جميع الوجبات والمشروبات التابعة له نهائياً (${affectedDishesCount} وجبة/مشروب)${childCats.length > 0 ? ' والتصنيفات الفرعية المتفرعة تحته' : ''}.`
+          : `Delete "${catName}"? All associated items (${affectedDishesCount} dishes/drinks)${childCats.length > 0 ? ' and its subcategories' : ''} will be permanently deleted.`;
+
+        if (window.confirm(confirmMsg)) {
           try {
             const res = await fetch(`/api/categories/${catId}`, { method: 'DELETE' });
             if (!res.ok) {
               const errData = await res.json().catch(() => ({}));
               throw new Error(errData.error || (isAr ? 'فشل حذف التصنيف' : 'Failed to delete category'));
             }
-            setCategories(prev => prev.filter(c => c.id !== catId));
-            setDishes(prev => prev.map(d => d.categoryId === catId ? { ...d, categoryId: '' } : d));
-            if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
-            showToast(isAr ? 'تم حذف التصنيف بنجاح' : 'Category deleted');
+            // Remove category and any child subcategories
+            setCategories(prev => prev.filter(c => !targetCatIds.includes(c.id)));
+            // Remove all dishes assigned to this category or its subcategories
+            setDishes(prev => prev.filter(d => !targetCatIds.includes(d.categoryId)));
+
+            if (syncChannel) {
+              syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
+              syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
+            }
+            showToast(isAr ? 'تم حذف التصنيف وجميع عناصره نهائياً' : 'Category and all associated items deleted');
           } catch (err) {
             showToast(err.message || (isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting category'), 'error');
             await loadData();
@@ -827,13 +843,13 @@
         }
       };
 
-      // Clear All Categories completely
+      // Clear All Categories completely (and all dishes)
       const handleClearAllCategories = async () => {
         if (categories.length === 0) {
           alert(isAr ? 'لا توجد أي تصنيفات حالياً لحذفها' : 'No categories to delete');
           return;
         }
-        if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف كافة التصنيفات؟ سيبقى فقط زر "جميع التصنيفات" على الصفحة الرئيسية' : 'Delete ALL categories? Only "All Categories" will remain on main page.')) {
+        if (window.confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف كافة التصنيفات؟ سيتم حذف كافة الوجبات والمشروبات أيضاً لتصبح القائمة نظيفة وجاهزة لإدخال أصنافك.' : 'Delete ALL categories? All dishes and drinks will also be permanently deleted.')) {
           try {
             const res = await fetch('/api/categories/clear-all', { method: 'POST' });
             if (!res.ok) {
@@ -841,9 +857,12 @@
               throw new Error(errData.error || (isAr ? 'فشل حذف التصنيفات' : 'Failed to delete categories'));
             }
             setCategories([]);
-            setDishes(prev => prev.map(d => ({ ...d, categoryId: '' })));
-            if (syncChannel) syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
-            showToast(isAr ? 'تم حذف جميع التصنيفات بنجاح' : 'All categories deleted');
+            setDishes([]);
+            if (syncChannel) {
+              syncChannel.postMessage({ type: 'CATEGORIES_UPDATED', time: Date.now() });
+              syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
+            }
+            showToast(isAr ? 'تم حذف جميع التصنيفات وعناصرها بنجاح' : 'All categories and items deleted');
           } catch (err) {
             showToast(err.message || (isAr ? 'حدث خطأ أثناء الحذف' : 'Error deleting categories'), 'error');
             await loadData();
