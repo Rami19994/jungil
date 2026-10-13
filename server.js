@@ -164,6 +164,8 @@ app.get('/api/menu', async (req, res) => {
     const dishes = dishesRaw.map(d => ({
       ...d,
       price: parseFloat(d.price) || 0,
+      priceGlass: d.priceGlass !== null && d.priceGlass !== undefined && d.priceGlass !== '' ? parseFloat(d.priceGlass) : null,
+      priceBottle: d.priceBottle !== null && d.priceBottle !== undefined && d.priceBottle !== '' ? parseFloat(d.priceBottle) : null,
       isChefSpecial: Boolean(d.isChefSpecial),
       isBestSeller: Boolean(d.isBestSeller),
       isVegetarian: Boolean(d.isVegetarian),
@@ -260,18 +262,28 @@ app.get('/api/categories', async (req, res) => {
 // 5. Category (POST Add / Update)
 app.post('/api/categories', async (req, res) => {
   try {
-    const { id, nameEn, nameAr, icon, displayOrder } = req.body;
+    const { id, nameEn, nameAr, icon, displayOrder, type, parentId } = req.body;
     const catId = id || `cat-${Date.now()}`;
 
     await db.run(
-      `INSERT INTO categories (id, nameEn, nameAr, icon, displayOrder)
-       VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO categories (id, nameEn, nameAr, icon, displayOrder, \`type\`, parentId)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          nameEn = VALUES(nameEn),
          nameAr = VALUES(nameAr),
          icon = VALUES(icon),
-         displayOrder = VALUES(displayOrder)`,
-      [catId, nameEn || '', nameAr || '', icon || 'utensils', Number(displayOrder) || 0]
+         displayOrder = VALUES(displayOrder),
+         \`type\` = VALUES(\`type\`),
+         parentId = VALUES(parentId)`,
+      [
+        catId,
+        nameEn || '',
+        nameAr || '',
+        icon || 'utensils',
+        Number(displayOrder) || 0,
+        type || 'food',
+        parentId || null,
+      ]
     );
 
     menuVersion = Date.now();
@@ -287,7 +299,9 @@ app.delete('/api/categories/:id', async (req, res) => {
   try {
     const catId = req.params.id;
 
-    // Unassign category from dishes so they stay safely visible under All Categories
+    // Reset parentId for any subcategories referencing this category
+    await db.run('UPDATE categories SET parentId = NULL WHERE parentId = ?', [catId]);
+    // Unassign category from dishes
     await db.run("UPDATE dishes SET categoryId = '' WHERE categoryId = ?", [catId]);
     await db.run('DELETE FROM categories WHERE id = ?', [catId]);
 
@@ -320,6 +334,8 @@ app.get('/api/dishes', async (req, res) => {
     const formatted = dishesRaw.map(d => ({
       ...d,
       price: parseFloat(d.price) || 0,
+      priceGlass: d.priceGlass !== null && d.priceGlass !== undefined && d.priceGlass !== '' ? parseFloat(d.priceGlass) : null,
+      priceBottle: d.priceBottle !== null && d.priceBottle !== undefined && d.priceBottle !== '' ? parseFloat(d.priceBottle) : null,
       isChefSpecial: Boolean(d.isChefSpecial),
       isBestSeller: Boolean(d.isBestSeller),
       isVegetarian: Boolean(d.isVegetarian),
@@ -345,11 +361,14 @@ app.post('/api/dishes', async (req, res) => {
       finalImageUrl = await saveImage(finalImageUrl);
     }
 
+    const priceGlass = d.priceGlass !== null && d.priceGlass !== undefined && d.priceGlass !== '' ? Number(d.priceGlass) : null;
+    const priceBottle = d.priceBottle !== null && d.priceBottle !== undefined && d.priceBottle !== '' ? Number(d.priceBottle) : null;
+
     const sql = `
       INSERT INTO dishes (
-        id, categoryId, nameEn, nameAr, descEn, descAr, price, image,
+        id, categoryId, nameEn, nameAr, descEn, descAr, price, priceGlass, priceBottle, image,
         isChefSpecial, isBestSeller, isVegetarian, isSpicy, inStock, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         categoryId = VALUES(categoryId),
         nameEn = VALUES(nameEn),
@@ -357,6 +376,8 @@ app.post('/api/dishes', async (req, res) => {
         descEn = VALUES(descEn),
         descAr = VALUES(descAr),
         price = VALUES(price),
+        priceGlass = VALUES(priceGlass),
+        priceBottle = VALUES(priceBottle),
         image = VALUES(image),
         isChefSpecial = VALUES(isChefSpecial),
         isBestSeller = VALUES(isBestSeller),
@@ -368,12 +389,14 @@ app.post('/api/dishes', async (req, res) => {
 
     await db.run(sql, [
       dishId,
-      d.categoryId || 'steaks',
+      d.categoryId || '',
       d.nameEn || '',
       d.nameAr || '',
       d.descEn || '',
       d.descAr || '',
       Number(d.price) || 0,
+      priceGlass,
+      priceBottle,
       finalImageUrl,
       d.isChefSpecial ? 1 : 0,
       d.isBestSeller ? 1 : 0,
@@ -415,22 +438,32 @@ app.put('/api/dishes/:id', async (req, res) => {
       deleteImageFile(oldDish.image);
     }
 
+    const priceGlass = d.priceGlass !== undefined
+      ? (d.priceGlass !== null && d.priceGlass !== '' ? Number(d.priceGlass) : null)
+      : (oldDish ? oldDish.priceGlass : null);
+
+    const priceBottle = d.priceBottle !== undefined
+      ? (d.priceBottle !== null && d.priceBottle !== '' ? Number(d.priceBottle) : null)
+      : (oldDish ? oldDish.priceBottle : null);
+
     if (!oldDish) {
       // Dish doesn't exist yet: insert new
       const sqlInsert = `
         INSERT INTO dishes (
-          id, categoryId, nameEn, nameAr, descEn, descAr, price, image,
+          id, categoryId, nameEn, nameAr, descEn, descAr, price, priceGlass, priceBottle, image,
           isChefSpecial, isBestSeller, isVegetarian, isSpicy, inStock, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       await db.run(sqlInsert, [
         dishId,
-        d.categoryId || 'steaks',
+        d.categoryId || '',
         d.nameEn || '',
         d.nameAr || '',
         d.descEn || '',
         d.descAr || '',
         Number(d.price) || 0,
+        priceGlass,
+        priceBottle,
         finalImageUrl,
         d.isChefSpecial ? 1 : 0,
         d.isBestSeller ? 1 : 0,
@@ -450,6 +483,8 @@ app.put('/api/dishes/:id', async (req, res) => {
           descEn = ?,
           descAr = ?,
           price = ?,
+          priceGlass = ?,
+          priceBottle = ?,
           image = ?,
           isChefSpecial = ?,
           isBestSeller = ?,
@@ -467,6 +502,8 @@ app.put('/api/dishes/:id', async (req, res) => {
         d.descEn !== undefined ? d.descEn : oldDish.descEn,
         d.descAr !== undefined ? d.descAr : oldDish.descAr,
         d.price !== undefined ? (Number(d.price) || 0) : oldDish.price,
+        priceGlass,
+        priceBottle,
         finalImageUrl,
         d.isChefSpecial !== undefined ? (d.isChefSpecial ? 1 : 0) : oldDish.isChefSpecial,
         d.isBestSeller !== undefined ? (d.isBestSeller ? 1 : 0) : oldDish.isBestSeller,
@@ -630,8 +667,16 @@ app.post('/api/restore', async (req, res) => {
       await db.run('DELETE FROM categories');
       for (const cat of categories) {
         await db.run(
-          'INSERT INTO categories (id, nameEn, nameAr, icon, displayOrder) VALUES (?, ?, ?, ?, ?)',
-          [cat.id, cat.nameEn, cat.nameAr, cat.icon || 'utensils', Number(cat.displayOrder) || 0]
+          'INSERT INTO categories (id, nameEn, nameAr, icon, displayOrder, `type`, parentId) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [
+            cat.id,
+            cat.nameEn,
+            cat.nameAr,
+            cat.icon || 'utensils',
+            Number(cat.displayOrder) || 0,
+            cat.type || 'food',
+            cat.parentId || null,
+          ]
         );
       }
     }
@@ -640,18 +685,32 @@ app.post('/api/restore', async (req, res) => {
       await db.run('DELETE FROM dishes');
       const now = new Date().toISOString();
       for (const d of dishes) {
+        const priceGlass = d.priceGlass !== null && d.priceGlass !== undefined && d.priceGlass !== '' ? Number(d.priceGlass) : null;
+        const priceBottle = d.priceBottle !== null && d.priceBottle !== undefined && d.priceBottle !== '' ? Number(d.priceBottle) : null;
+
         await db.run(
           `INSERT INTO dishes (
-            id, categoryId, nameEn, nameAr, descEn, descAr, price, image,
+            id, categoryId, nameEn, nameAr, descEn, descAr, price, priceGlass, priceBottle, image,
             isChefSpecial, isBestSeller, isVegetarian, isSpicy, inStock, createdAt, updatedAt
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            d.id, d.categoryId, d.nameEn, d.nameAr, d.descEn || '', d.descAr || '',
-            Number(d.price) || 0, d.image || '',
-            d.isChefSpecial ? 1 : 0, d.isBestSeller ? 1 : 0,
-            d.isVegetarian ? 1 : 0, d.isSpicy ? 1 : 0,
+            d.id,
+            d.categoryId || '',
+            d.nameEn,
+            d.nameAr,
+            d.descEn || '',
+            d.descAr || '',
+            Number(d.price) || 0,
+            priceGlass,
+            priceBottle,
+            d.image || '',
+            d.isChefSpecial ? 1 : 0,
+            d.isBestSeller ? 1 : 0,
+            d.isVegetarian ? 1 : 0,
+            d.isSpicy ? 1 : 0,
             d.inStock !== false ? 1 : 0,
-            d.createdAt || now, d.updatedAt || now
+            d.createdAt || now,
+            d.updatedAt || now,
           ]
         );
       }

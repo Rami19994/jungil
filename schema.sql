@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS categories (
   `nameEn` VARCHAR(255) NOT NULL,
   `nameAr` VARCHAR(255) NOT NULL,
   `icon` VARCHAR(100) DEFAULT 'utensils',
-  `displayOrder` INT DEFAULT 0
+  `displayOrder` INT DEFAULT 0,
+  `type` VARCHAR(20) DEFAULT 'food',
+  `parentId` VARCHAR(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 3. Menu Dishes & Luxury Culinary Offerings
@@ -25,6 +27,8 @@ CREATE TABLE IF NOT EXISTS dishes (
   `descEn` TEXT,
   `descAr` TEXT,
   `price` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  `priceGlass` DECIMAL(10, 2) DEFAULT NULL,
+  `priceBottle` DECIMAL(10, 2) DEFAULT NULL,
   `image` LONGTEXT,
   `isChefSpecial` TINYINT(1) DEFAULT 0,
   `isBestSeller` TINYINT(1) DEFAULT 0,

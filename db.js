@@ -64,7 +64,9 @@ async function initDatabase() {
         \`nameEn\` VARCHAR(255) NOT NULL,
         \`nameAr\` VARCHAR(255) NOT NULL,
         \`icon\` VARCHAR(100) DEFAULT 'utensils',
-        \`displayOrder\` INT DEFAULT 0
+        \`displayOrder\` INT DEFAULT 0,
+        \`type\` VARCHAR(20) DEFAULT 'food',
+        \`parentId\` VARCHAR(100) DEFAULT NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
@@ -78,6 +80,8 @@ async function initDatabase() {
         \`descEn\` TEXT,
         \`descAr\` TEXT,
         \`price\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        \`priceGlass\` DECIMAL(10, 2) DEFAULT NULL,
+        \`priceBottle\` DECIMAL(10, 2) DEFAULT NULL,
         \`image\` LONGTEXT,
         \`isChefSpecial\` TINYINT(1) DEFAULT 0,
         \`isBestSeller\` TINYINT(1) DEFAULT 0,
@@ -88,6 +92,13 @@ async function initDatabase() {
         \`updatedAt\` VARCHAR(50)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
+
+    // Safe idempotent migrations for existing installations
+    try { await conn.execute("ALTER TABLE categories ADD COLUMN `type` VARCHAR(20) DEFAULT 'food'"); } catch (_) {}
+    try { await conn.execute("ALTER TABLE categories ADD COLUMN `parentId` VARCHAR(100) DEFAULT NULL"); } catch (_) {}
+    try { await conn.execute("ALTER TABLE dishes ADD COLUMN `priceGlass` DECIMAL(10, 2) DEFAULT NULL"); } catch (_) {}
+    try { await conn.execute("ALTER TABLE dishes ADD COLUMN `priceBottle` DECIMAL(10, 2) DEFAULT NULL"); } catch (_) {}
+    try { await conn.execute("UPDATE categories SET `type` = 'food' WHERE `type` IS NULL OR `type` = ''"); } catch (_) {}
 
     // Check if initial settings exist
     const isInit = await get("SELECT `value` FROM settings WHERE `key` = 'isInitialized'");

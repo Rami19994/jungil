@@ -242,6 +242,22 @@
             <path d="M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5Z"></path>
           </svg>
         ),
+        glass: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M8 22h8"></path>
+            <path d="M12 15v7"></path>
+            <path d="m5 3 2 9a5 5 0 0 0 10 0l2-9Z"></path>
+          </svg>
+        ),
+        bottle: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M10 2h4"></path>
+            <path d="M10 5h4"></path>
+            <path d="M10 2v3"></path>
+            <path d="M14 2v3"></path>
+            <path d="M9 8a3 3 0 0 1 3-3h0a3 3 0 0 1 3 3v13a1 1 0 0 1-1 1H10a1 1 0 0 1-1-1Z"></path>
+          </svg>
+        ),
         coffee: (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
             <path d="M10 2v2"></path>
@@ -388,7 +404,9 @@
       const [isLoading, setIsLoading] = useState(true);
 
       // Filters & Search
-      const [activeCategory, setActiveCategory] = useState('all');
+      const [activeSection, setActiveSection] = useState('food'); // 'food' | 'drink'
+      const [activeCategory, setActiveCategory] = useState('');
+      const [activeSubcategory, setActiveSubcategory] = useState('all');
       const [searchQuery, setSearchQuery] = useState('');
       const [activeTagFilter, setActiveTagFilter] = useState('all');
 
@@ -507,12 +525,38 @@
           : `${settings.restaurantNameEn} | Luxury Digital Menu`;
       }, [lang, isAr, settings]);
 
-      // Fallback activeCategory to 'all' if selected category is deleted
+      // Categories divided by top-level section
+      const foodCategories = useMemo(() => {
+        return categories.filter(c => (c.type || 'food') === 'food');
+      }, [categories]);
+
+      const drinkMainCategories = useMemo(() => {
+        return categories.filter(c => c.type === 'drink' && !c.parentId);
+      }, [categories]);
+
+      const currentDrinkSubcategories = useMemo(() => {
+        if (activeSection !== 'drink' || !activeCategory) return [];
+        return categories.filter(c => c.type === 'drink' && c.parentId === activeCategory);
+      }, [categories, activeSection, activeCategory]);
+
+      // Automatically keep activeCategory aligned with active section
       useEffect(() => {
-        if (activeCategory !== 'all' && !categories.some(c => c.id === activeCategory)) {
-          setActiveCategory('all');
+        if (activeSection === 'food') {
+          if (!activeCategory || !foodCategories.some(c => c.id === activeCategory)) {
+            if (foodCategories.length > 0) setActiveCategory(foodCategories[0].id);
+            else setActiveCategory('');
+          }
+        } else {
+          if (!activeCategory || !drinkMainCategories.some(c => c.id === activeCategory)) {
+            if (drinkMainCategories.length > 0) {
+              setActiveCategory(drinkMainCategories[0].id);
+              setActiveSubcategory('all');
+            } else {
+              setActiveCategory('');
+            }
+          }
         }
-      }, [categories, activeCategory]);
+      }, [activeSection, foodCategories, drinkMainCategories]);
 
       // Handle Escape key and disable background scrolling when modal is open
       useEffect(() => {
@@ -543,12 +587,10 @@
       // Filtered Dishes
       const filteredDishes = useMemo(() => {
         return dishes.filter(dish => {
-          if (activeCategory !== 'all' && dish.categoryId !== activeCategory) return false;
-          if (activeTagFilter === 'chef' && !dish.isChefSpecial) return false;
-          if (activeTagFilter === 'best' && !dish.isBestSeller) return false;
-          if (activeTagFilter === 'veg' && !dish.isVegetarian) return false;
-          if (activeTagFilter === 'spicy' && !dish.isSpicy) return false;
+          const dishCat = categories.find(c => c.id === dish.categoryId);
+          const dishType = dishCat?.type || 'food';
 
+          // Search Query Filter
           if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase().trim();
             const matchNameEn = dish.nameEn?.toLowerCase().includes(query);
@@ -556,10 +598,39 @@
             const matchDescEn = dish.descEn?.toLowerCase().includes(query);
             const matchDescAr = dish.descAr?.includes(query);
             if (!matchNameEn && !matchNameAr && !matchDescEn && !matchDescAr) return false;
+            if (dishType !== activeSection) return false;
+            return true;
           }
+
+          // Primary Section & Category matching
+          if (activeSection === 'food') {
+            if (dishType !== 'food') return false;
+            if (activeCategory && dish.categoryId !== activeCategory) return false;
+          } else {
+            // Drinks section
+            if (dishType !== 'drink') return false;
+            if (!activeCategory) return false;
+
+            const subCatIds = categories.filter(c => c.parentId === activeCategory).map(c => c.id);
+
+            if (activeSubcategory !== 'all') {
+              // Specific subcategory selected (e.g. Black Whiskey)
+              if (dish.categoryId !== activeSubcategory) return false;
+            } else {
+              // All drinks under this parent category (or directly in this parent)
+              if (dish.categoryId !== activeCategory && !subCatIds.includes(dish.categoryId)) return false;
+            }
+          }
+
+          // Dietary Tag Filters
+          if (activeTagFilter === 'chef' && !dish.isChefSpecial) return false;
+          if (activeTagFilter === 'best' && !dish.isBestSeller) return false;
+          if (activeTagFilter === 'veg' && !dish.isVegetarian) return false;
+          if (activeTagFilter === 'spicy' && !dish.isSpicy) return false;
+
           return true;
         });
-      }, [dishes, activeCategory, activeTagFilter, searchQuery]);
+      }, [dishes, categories, activeSection, activeCategory, activeSubcategory, activeTagFilter, searchQuery]);
 
       return (
         <div className={`min-h-screen bg-[#070a0e] text-slate-100 mobile-safe-bottom ${isAr ? 'font-arabic' : 'font-sans'}`}>
@@ -738,37 +809,153 @@
                   </div>
                 </div>
 
+                {/* Primary Section Switcher: Food (مأكولات) vs Drinks (مشروبات) */}
+                <div className="flex items-center justify-center gap-2 sm:gap-3 max-w-md mx-auto p-1 rounded-2xl bg-black/60 border border-gold-500/30 backdrop-blur-xl">
+                  <button
+                    onClick={() => {
+                      setActiveSection('food');
+                      setActiveSubcategory('all');
+                      if (foodCategories.length > 0) setActiveCategory(foodCategories[0].id);
+                    }}
+                    className={`flex-1 py-2 sm:py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 ${
+                      activeSection === 'food'
+                        ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-[1.02]'
+                        : 'text-slate-300 hover:text-white hover:bg-jungle-900/60'
+                    }`}
+                  >
+                    <Icon name="utensils" className="w-4 h-4 flex-shrink-0" />
+                    <span>{isAr ? '🍽️ مأكولات' : '🍽️ Food & Dining'}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/30 font-mono">
+                      {dishes.filter(d => {
+                        const c = categories.find(cat => cat.id === d.categoryId);
+                        return !c || (c.type || 'food') === 'food';
+                      }).length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveSection('drink');
+                      setActiveSubcategory('all');
+                      if (drinkMainCategories.length > 0) setActiveCategory(drinkMainCategories[0].id);
+                    }}
+                    className={`flex-1 py-2 sm:py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 ${
+                      activeSection === 'drink'
+                        ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-[1.02]'
+                        : 'text-slate-300 hover:text-white hover:bg-jungle-900/60'
+                    }`}
+                  >
+                    <Icon name="wine" className="w-4 h-4 flex-shrink-0" />
+                    <span>{isAr ? '🍸 مشروبات' : '🍸 Beverages & Bar'}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/30 font-mono">
+                      {dishes.filter(d => {
+                        const c = categories.find(cat => cat.id === d.categoryId);
+                        return c && c.type === 'drink';
+                      }).length}
+                    </span>
+                  </button>
+                </div>
+
                 {/* Horizontal Scrollable Categories Bar */}
                 <div className="overflow-x-auto hide-scrollbar py-1">
                   <div className="flex items-center space-x-2 rtl:space-x-reverse min-w-max px-1">
-                    <button
-                      onClick={() => setActiveCategory('all')}
-                      className={`flex-shrink-0 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse ${activeCategory === 'all' ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-105' : 'glass-panel text-slate-300 hover:text-white'}`}
-                    >
-                      <Icon name="sparkles" className="w-3.5 h-3.5" />
-                      <span>{isAr ? 'جميع التصنيفات' : 'All Categories'}</span>
-                      <span className="text-[10px] opacity-80 font-mono">({dishes.length})</span>
-                    </button>
+                    {activeSection === 'food' ? (
+                      /* FOOD CATEGORIES ONLY - NO "ALL CATEGORIES" */
+                      foodCategories.length === 0 ? (
+                        <span className="text-xs text-slate-400 py-1">{isAr ? 'لا توجد تصنيفات مأكولات' : 'No food categories'}</span>
+                      ) : (
+                        foodCategories.map((cat) => {
+                          const count = dishes.filter(d => d.categoryId === cat.id).length;
+                          const isActive = activeCategory === cat.id;
+                          return (
+                            <button
+                              key={cat.id}
+                              onClick={() => setActiveCategory(cat.id)}
+                              className={`flex-shrink-0 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse ${
+                                isActive
+                                  ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-105'
+                                  : 'glass-panel text-slate-300 hover:text-white'
+                              }`}
+                            >
+                              <Icon name={cat.icon || 'utensils'} className="w-3.5 h-3.5" />
+                              <span>{isAr ? cat.nameAr : cat.nameEn}</span>
+                              <span className="text-[10px] opacity-80 font-mono">({count})</span>
+                            </button>
+                          );
+                        })
+                      )
+                    ) : (
+                      /* DRINK MAIN CATEGORIES */
+                      drinkMainCategories.length === 0 ? (
+                        <span className="text-xs text-slate-400 py-1">{isAr ? 'لا توجد تصنيفات مشروبات' : 'No beverage categories'}</span>
+                      ) : (
+                        drinkMainCategories.map((cat) => {
+                          const subCatIds = categories.filter(c => c.parentId === cat.id).map(c => c.id);
+                          const count = dishes.filter(d => d.categoryId === cat.id || subCatIds.includes(d.categoryId)).length;
+                          const isActive = activeCategory === cat.id;
+                          return (
+                            <button
+                              key={cat.id}
+                              onClick={() => {
+                                setActiveCategory(cat.id);
+                                setActiveSubcategory('all');
+                              }}
+                              className={`flex-shrink-0 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse ${
+                                isActive
+                                  ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-105'
+                                  : 'glass-panel text-slate-300 hover:text-white'
+                              }`}
+                            >
+                              <Icon name={cat.icon || 'wine'} className="w-3.5 h-3.5" />
+                              <span>{isAr ? cat.nameAr : cat.nameEn}</span>
+                              <span className="text-[10px] opacity-80 font-mono">({count})</span>
+                            </button>
+                          );
+                        })
+                      )
+                    )}
+                  </div>
+                </div>
 
-                    {categories.map((cat) => {
-                      const count = dishes.filter(d => d.categoryId === cat.id).length;
-                      const isActive = activeCategory === cat.id;
+                {/* DRINKS NESTED SUBCATEGORIES (تفرعات تصنيفات المشروبات) */}
+                {activeSection === 'drink' && currentDrinkSubcategories.length > 0 && (
+                  <div className="flex items-center space-x-1.5 rtl:space-x-reverse overflow-x-auto hide-scrollbar pt-1 pb-1 border-t border-gold-500/15">
+                    <span className="text-[11px] font-bold text-gold-400/90 px-2 flex-shrink-0 flex items-center gap-1">
+                      <span>↳</span>
+                      <span>{isAr ? 'التصنيف الفرعي:' : 'Subcategory:'}</span>
+                    </span>
+                    <button
+                      onClick={() => setActiveSubcategory('all')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition flex-shrink-0 ${
+                        activeSubcategory === 'all'
+                          ? 'bg-gold-500 text-obsidian-950 shadow-gold-glow-sm'
+                          : 'bg-jungle-900/90 text-slate-300 border border-slate-700 hover:border-gold-500/40'
+                      }`}
+                    >
+                      {isAr ? 'الكل' : 'All'}
+                    </button>
+                    {currentDrinkSubcategories.map(sub => {
+                      const count = dishes.filter(d => d.categoryId === sub.id).length;
+                      const isActive = activeSubcategory === sub.id;
                       return (
                         <button
-                          key={cat.id}
-                          onClick={() => setActiveCategory(cat.id)}
-                          className={`flex-shrink-0 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse ${isActive ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-105' : 'glass-panel text-slate-300 hover:text-white'}`}
+                          key={sub.id}
+                          onClick={() => setActiveSubcategory(sub.id)}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${
+                            isActive
+                              ? 'bg-gold-500 text-obsidian-950 shadow-gold-glow-sm'
+                              : 'bg-jungle-900/90 text-slate-300 border border-slate-700 hover:border-gold-500/40'
+                          }`}
                         >
-                          <Icon name={cat.icon || 'utensils'} className="w-3.5 h-3.5" />
-                          <span>{isAr ? cat.nameAr : cat.nameEn}</span>
-                          <span className="text-[10px] opacity-80 font-mono">({count})</span>
+                          <span>{isAr ? sub.nameAr : sub.nameEn}</span>
+                          <span className="text-[10px] opacity-75 font-mono">({count})</span>
                         </button>
                       );
                     })}
                   </div>
-                </div>
+                )}
 
-                {/* Dietary Quick Filter Pills */}
+                {/* Dietary Quick Filter Pills (Optional filters) */}
                 <div className="flex items-center space-x-1.5 rtl:space-x-reverse overflow-x-auto hide-scrollbar text-[11px] pt-0.5">
                   <button
                     onClick={() => setActiveTagFilter('all')}
@@ -790,39 +977,153 @@
                     <span>🔥</span>
                     <span>{isAr ? 'الأكثر طلباً' : 'Best Seller'}</span>
                   </button>
-                  <button
-                    onClick={() => setActiveTagFilter('veg')}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition flex-shrink-0 flex items-center space-x-1 rtl:space-x-reverse ${activeTagFilter === 'veg' ? 'bg-emerald-600 text-white border border-emerald-400' : 'bg-jungle-950 text-emerald-300 border border-emerald-500/30'}`}
-                  >
-                    <span>🌿</span>
-                    <span>{isAr ? 'نباتي' : 'Vegetarian'}</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveTagFilter('spicy')}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition flex-shrink-0 flex items-center space-x-1 rtl:space-x-reverse ${activeTagFilter === 'spicy' ? 'bg-red-600 text-white border border-red-400' : 'bg-jungle-950 text-red-300 border border-red-500/30'}`}
-                  >
-                    <span>🌶️</span>
-                    <span>{isAr ? 'حار' : 'Spicy'}</span>
-                  </button>
+                  {activeSection === 'food' && (
+                    <>
+                      <button
+                        onClick={() => setActiveTagFilter('veg')}
+                        className={`px-2.5 py-1 rounded-lg font-semibold transition flex-shrink-0 flex items-center space-x-1 rtl:space-x-reverse ${activeTagFilter === 'veg' ? 'bg-emerald-600 text-white border border-emerald-400' : 'bg-jungle-950 text-emerald-300 border border-emerald-500/30'}`}
+                      >
+                        <span>🌿</span>
+                        <span>{isAr ? 'نباتي' : 'Vegetarian'}</span>
+                      </button>
+                      <button
+                        onClick={() => setActiveTagFilter('spicy')}
+                        className={`px-2.5 py-1 rounded-lg font-semibold transition flex-shrink-0 flex items-center space-x-1 rtl:space-x-reverse ${activeTagFilter === 'spicy' ? 'bg-red-600 text-white border border-red-400' : 'bg-jungle-950 text-red-300 border border-red-500/30'}`}
+                      >
+                        <span>🌶️</span>
+                        <span>{isAr ? 'حار' : 'Spicy'}</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </section>
 
-            {/* DISHES LIST / GRID (CLEAN SHOWCASE ONLY) */}
+            {/* DISHES LIST / GRID / DRINKS TABLE */}
             <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10">
               {filteredDishes.length === 0 ? (
                 <div className="text-center py-16 glass-panel rounded-2xl max-w-md mx-auto p-8 border border-gold-500/20">
                   <Icon name="search" className="w-12 h-12 text-gold-400/60 mx-auto mb-3" />
-                  <p className="text-slate-300 font-semibold mb-2">{isAr ? 'لم نجد أطباق تطابق بحثك.' : 'No dishes match your search.'}</p>
+                  <p className="text-slate-300 font-semibold mb-2">
+                    {isAr
+                      ? (activeSection === 'drink' ? 'لا توجد مشروبات في هذا التصنيف حالياً.' : 'لم نجد أطباق تطابق بحثك.')
+                      : (activeSection === 'drink' ? 'No beverages in this category yet.' : 'No dishes match your search.')}
+                  </p>
                   <button
-                    onClick={() => { setActiveCategory('all'); setSearchQuery(''); setActiveTagFilter('all'); }}
+                    onClick={() => { setSearchQuery(''); setActiveTagFilter('all'); setActiveSubcategory('all'); }}
                     className="px-4 py-2 rounded-xl bg-gold-500 text-obsidian-950 font-bold text-xs"
                   >
-                    {isAr ? 'عرض الكل' : 'Show All'}
+                    {isAr ? 'إعادة ضبط البحث' : 'Reset Search'}
                   </button>
                 </div>
+              ) : activeSection === 'drink' ? (
+                /* ================= DRINKS TABLE VIEW (جدول المشروبات: كأس أو قنينة) ================= */
+                <div className="w-full glass-panel rounded-3xl border border-gold-500/30 overflow-hidden shadow-2xl backdrop-blur-xl">
+                  {/* Table Header */}
+                  <div className="grid grid-cols-12 bg-jungle-950/95 border-b border-gold-500/30 px-3 sm:px-6 py-3 sm:py-3.5 text-xs sm:text-sm font-black text-gold-400 tracking-wider">
+                    <div className="col-span-7 sm:col-span-6 flex items-center gap-1.5">
+                      <Icon name="wine" className="w-4 h-4 text-gold-400" />
+                      <span>{isAr ? 'المشروب والتفاصيل' : 'Beverage & Details'}</span>
+                    </div>
+                    <div className="col-span-2 sm:col-span-3 text-center flex items-center justify-center gap-1 text-emerald-400">
+                      <Icon name="glass" className="w-3.5 h-3.5" />
+                      <span>{isAr ? 'كأس' : 'Glass'}</span>
+                    </div>
+                    <div className="col-span-3 text-center flex items-center justify-center gap-1 text-amber-400">
+                      <Icon name="bottle" className="w-3.5 h-3.5" />
+                      <span>{isAr ? 'قنينة' : 'Bottle'}</span>
+                    </div>
+                  </div>
+
+                  {/* Table Body */}
+                  <div className="divide-y divide-slate-800/80">
+                    {filteredDishes.map((dish, idx) => {
+                      const hasGlass = dish.priceGlass !== null && dish.priceGlass !== undefined && dish.priceGlass !== '';
+                      const hasBottle = dish.priceBottle !== null && dish.priceBottle !== undefined && dish.priceBottle !== '';
+                      const glassVal = hasGlass ? Number(dish.priceGlass) : null;
+                      const bottleVal = hasBottle ? Number(dish.priceBottle) : null;
+
+                      return (
+                        <div
+                          key={dish.id}
+                          onClick={() => setSelectedDishDetail(dish)}
+                          className={`grid grid-cols-12 items-center px-3 sm:px-6 py-3 sm:py-3.5 transition cursor-pointer hover:bg-gold-500/10 group ${
+                            idx % 2 === 0 ? 'bg-black/20' : 'bg-transparent'
+                          } ${!dish.inStock ? 'opacity-60' : ''}`}
+                        >
+                          {/* Drink Info Column */}
+                          <div className="col-span-7 sm:col-span-6 flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2 rtl:pr-0 rtl:pl-2">
+                            {/* Drink Image / Thumbnail */}
+                            {dish.image ? (
+                              <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl overflow-hidden border border-gold-500/30 flex-shrink-0 relative group-hover:scale-105 transition-transform shadow-md">
+                                <img
+                                  src={dish.image}
+                                  alt={dish.nameEn}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl bg-jungle-900/90 border border-gold-500/25 flex items-center justify-center text-gold-400/80 flex-shrink-0 group-hover:scale-105 transition-transform shadow-md">
+                                <Icon name="wine" className="w-5 h-5 sm:w-6 sm:h-6" />
+                              </div>
+                            )}
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h4 className="font-bold text-xs sm:text-base text-slate-100 group-hover:text-gold-300 transition-colors truncate leading-tight">
+                                  {isAr ? (dish.nameAr || dish.nameEn) : (dish.nameEn || dish.nameAr)}
+                                </h4>
+                                {dish.isChefSpecial && <span className="text-[10px] text-gold-400 font-bold">★</span>}
+                                {dish.isBestSeller && <span className="text-[10px] text-amber-400 font-bold">🔥</span>}
+                              </div>
+
+                              {(isAr ? dish.descAr : dish.descEn) && (
+                                <p className="text-[10px] sm:text-xs text-slate-400 truncate mt-0.5 leading-relaxed">
+                                  {isAr ? dish.descAr : dish.descEn}
+                                </p>
+                              )}
+
+                              {!dish.inStock && (
+                                <span className="inline-block mt-0.5 text-[9px] text-red-400 font-bold">
+                                  {isAr ? '● نفذت الكمية' : '● Sold Out'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Glass Price Column */}
+                          <div className="col-span-2 sm:col-span-3 text-center">
+                            {glassVal !== null && glassVal > 0 ? (
+                              <span className="inline-flex items-center justify-center px-2 sm:px-3 py-1 rounded-xl bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 text-xs sm:text-sm font-black font-mono shadow-sm">
+                                {glassVal}
+                              </span>
+                            ) : !hasGlass && !hasBottle && dish.price > 0 ? (
+                              <span className="inline-flex items-center justify-center px-2 sm:px-3 py-1 rounded-xl bg-gold-500/15 text-gold-300 border border-gold-500/30 text-xs sm:text-sm font-black font-mono">
+                                {formatPrice(dish.price)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-600 text-sm font-mono">—</span>
+                            )}
+                          </div>
+
+                          {/* Bottle Price Column */}
+                          <div className="col-span-3 text-center">
+                            {bottleVal !== null && bottleVal > 0 ? (
+                              <span className="inline-flex items-center justify-center px-2 sm:px-3.5 py-1 rounded-xl bg-amber-950/80 text-amber-300 border border-amber-500/40 text-xs sm:text-sm font-black font-mono shadow-sm">
+                                {bottleVal}
+                              </span>
+                            ) : (
+                              <span className="text-slate-600 text-sm font-mono">—</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               ) : viewMode === 'grid' ? (
-                /* ================= GRID VIEW ================= */
+                /* ================= FOOD GRID VIEW ================= */
                 <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                   {filteredDishes.map((dish) => (
                     <div
@@ -830,7 +1131,7 @@
                       onClick={() => setSelectedDishDetail(dish)}
                       className={`group glass-card rounded-2xl overflow-hidden flex flex-col justify-between cursor-pointer hover:border-gold-500/50 hover:shadow-gold-glow-sm transition-all duration-300 ${!dish.inStock ? 'opacity-65 grayscale-[30%]' : ''}`}
                     >
-                      {/* Pure Clean Meal Image - Or Elegant Luxury Culinary Placeholder if no image */}
+                      {/* Pure Clean Meal Image */}
                       {dish.image ? (
                         <div
                           className="relative aspect-[16/11] sm:aspect-[4/3] w-full overflow-hidden bg-jungle-950 group/img cursor-pointer"
@@ -909,7 +1210,7 @@
                   ))}
                 </div>
               ) : (
-                /* ================= LIST VIEW ================= */
+                /* ================= FOOD LIST VIEW ================= */
                 <div className="space-y-3 max-w-4xl mx-auto">
                   {filteredDishes.map((dish) => (
                     <div
@@ -1031,10 +1332,24 @@
                     <div className="absolute inset-0 bg-gradient-to-t from-[#061e15] via-transparent to-black/40 pointer-events-none"></div>
 
                     {/* Price Badge on bottom of image */}
-                    <div className="absolute bottom-3.5 left-3.5 rtl:left-auto rtl:right-3.5 pointer-events-none">
-                      <span className="glass-panel px-4 py-1.5 rounded-full text-gold-300 font-black text-base sm:text-xl border border-gold-500/60 shadow-gold-glow backdrop-blur-xl">
-                        {formatPrice(selectedDishDetail.price)}
-                      </span>
+                    <div className="absolute bottom-3.5 left-3.5 rtl:left-auto rtl:right-3.5 pointer-events-none flex items-center gap-2">
+                      {selectedDishDetail.priceGlass ? (
+                        <span className="glass-panel px-3 py-1 rounded-full text-emerald-300 font-black text-xs sm:text-sm border border-emerald-500/50 shadow-gold-glow backdrop-blur-xl flex items-center gap-1">
+                          <Icon name="glass" className="w-3.5 h-3.5" />
+                          <span>{isAr ? 'كأس:' : 'Glass:'} {formatPrice(selectedDishDetail.priceGlass)}</span>
+                        </span>
+                      ) : null}
+                      {selectedDishDetail.priceBottle ? (
+                        <span className="glass-panel px-3 py-1 rounded-full text-amber-300 font-black text-xs sm:text-sm border border-amber-500/50 shadow-gold-glow backdrop-blur-xl flex items-center gap-1">
+                          <Icon name="bottle" className="w-3.5 h-3.5" />
+                          <span>{isAr ? 'قنينة:' : 'Bottle:'} {formatPrice(selectedDishDetail.priceBottle)}</span>
+                        </span>
+                      ) : null}
+                      {!selectedDishDetail.priceGlass && !selectedDishDetail.priceBottle && (
+                        <span className="glass-panel px-4 py-1.5 rounded-full text-gold-300 font-black text-base sm:text-xl border border-gold-500/60 shadow-gold-glow backdrop-blur-xl">
+                          {formatPrice(selectedDishDetail.price)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Stock Status Badge on bottom of image */}
@@ -1050,10 +1365,22 @@
                       <Icon name="utensils" className="w-10 h-10" />
                     </div>
                     <span className="text-xs sm:text-sm text-gold-400/90 font-semibold mt-3">{isAr ? 'قائمة جانغل الفاخرة' : 'Jungle Cuisine'}</span>
-                    <div className="absolute bottom-3.5 left-3.5 rtl:left-auto rtl:right-3.5">
-                      <span className="glass-panel px-4 py-1.5 rounded-full text-gold-300 font-black text-base sm:text-xl border border-gold-500/50 shadow-gold-glow">
-                        {formatPrice(selectedDishDetail.price)}
-                      </span>
+                    <div className="absolute bottom-3.5 left-3.5 rtl:left-auto rtl:right-3.5 flex items-center gap-2">
+                      {selectedDishDetail.priceGlass ? (
+                        <span className="glass-panel px-3 py-1 rounded-full text-emerald-300 font-black text-xs sm:text-sm border border-emerald-500/50 shadow-gold-glow">
+                          {isAr ? 'كأس:' : 'Glass:'} {formatPrice(selectedDishDetail.priceGlass)}
+                        </span>
+                      ) : null}
+                      {selectedDishDetail.priceBottle ? (
+                        <span className="glass-panel px-3 py-1 rounded-full text-amber-300 font-black text-xs sm:text-sm border border-amber-500/50 shadow-gold-glow">
+                          {isAr ? 'قنينة:' : 'Bottle:'} {formatPrice(selectedDishDetail.priceBottle)}
+                        </span>
+                      ) : null}
+                      {!selectedDishDetail.priceGlass && !selectedDishDetail.priceBottle && (
+                        <span className="glass-panel px-4 py-1.5 rounded-full text-gold-300 font-black text-base sm:text-xl border border-gold-500/50 shadow-gold-glow">
+                          {formatPrice(selectedDishDetail.price)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1112,8 +1439,37 @@
                   {/* Modal Footer: Price & Close Button */}
                   <div className="pt-2 flex items-center justify-between">
                     <div>
-                      <span className="text-[11px] text-slate-400 block">{isAr ? 'السعر' : 'Price'}</span>
-                      <span className="text-lg sm:text-xl font-black text-gold-300">{formatPrice(selectedDishDetail.price)}</span>
+                      {selectedDishDetail.priceGlass || selectedDishDetail.priceBottle ? (
+                        <div className="flex items-center gap-3">
+                          {selectedDishDetail.priceGlass ? (
+                            <div>
+                              <span className="text-[10px] text-emerald-400 block font-semibold flex items-center gap-1">
+                                <Icon name="glass" className="w-3 h-3" />
+                                <span>{isAr ? 'سعر الكأس' : 'Glass Price'}</span>
+                              </span>
+                              <span className="text-base sm:text-lg font-black text-emerald-300 font-mono">
+                                {formatPrice(selectedDishDetail.priceGlass)}
+                              </span>
+                            </div>
+                          ) : null}
+                          {selectedDishDetail.priceBottle ? (
+                            <div>
+                              <span className="text-[10px] text-amber-400 block font-semibold flex items-center gap-1">
+                                <Icon name="bottle" className="w-3 h-3" />
+                                <span>{isAr ? 'سعر القنينة' : 'Bottle Price'}</span>
+                              </span>
+                              <span className="text-base sm:text-lg font-black text-amber-300 font-mono">
+                                {formatPrice(selectedDishDetail.priceBottle)}
+                              </span>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="text-[11px] text-slate-400 block">{isAr ? 'السعر' : 'Price'}</span>
+                          <span className="text-lg sm:text-xl font-black text-gold-300">{formatPrice(selectedDishDetail.price)}</span>
+                        </div>
+                      )}
                     </div>
 
                     <button
