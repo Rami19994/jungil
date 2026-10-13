@@ -632,6 +632,74 @@
         });
       }, [dishes, categories, activeSection, activeCategory, activeSubcategory, activeTagFilter, searchQuery]);
 
+      // Group drinks by subcategory (or active subcategory / category)
+      const drinksGroups = useMemo(() => {
+        if (activeSection !== 'drink') return [];
+
+        // 1. If user selected a specific subcategory:
+        if (activeSubcategory !== 'all') {
+          const subObj = categories.find(c => c.id === activeSubcategory);
+          const title = subObj
+            ? (isAr ? (subObj.nameAr || subObj.nameEn) : (subObj.nameEn || subObj.nameAr))
+            : (isAr ? 'المشروبات' : 'Beverages');
+          return [{
+            id: activeSubcategory,
+            title,
+            icon: subObj?.icon || 'wine',
+            dishes: filteredDishes
+          }];
+        }
+
+        // 2. If activeSubcategory === 'all' and parent has subcategories:
+        if (currentDrinkSubcategories.length > 0) {
+          const groups = [];
+
+          // Drinks grouped into their respective subcategory
+          for (const sub of currentDrinkSubcategories) {
+            const subDishes = filteredDishes.filter(d => d.categoryId === sub.id);
+            if (subDishes.length > 0) {
+              const title = isAr ? (sub.nameAr || sub.nameEn) : (sub.nameEn || sub.nameAr);
+              groups.push({
+                id: sub.id,
+                title,
+                icon: sub.icon || 'wine',
+                dishes: subDishes
+              });
+            }
+          }
+
+          // Any drinks directly in the parent category (not in a subcategory)
+          const directDishes = filteredDishes.filter(d => d.categoryId === activeCategory);
+          if (directDishes.length > 0) {
+            const parentCat = categories.find(c => c.id === activeCategory);
+            const title = parentCat
+              ? (isAr ? (parentCat.nameAr || parentCat.nameEn) : (parentCat.nameEn || parentCat.nameAr))
+              : (isAr ? 'مشروبات متنوعة' : 'Assorted Drinks');
+            groups.unshift({
+              id: activeCategory,
+              title,
+              icon: parentCat?.icon || 'wine',
+              dishes: directDishes
+            });
+          }
+
+          if (groups.length > 0) return groups;
+        }
+
+        // 3. Category without subcategories (e.g. Cocktails):
+        const parentCat = categories.find(c => c.id === activeCategory);
+        const title = parentCat
+          ? (isAr ? (parentCat.nameAr || parentCat.nameEn) : (parentCat.nameEn || parentCat.nameAr))
+          : (isAr ? 'المشروبات' : 'Beverages');
+
+        return [{
+          id: activeCategory || 'all',
+          title,
+          icon: parentCat?.icon || 'wine',
+          dishes: filteredDishes
+        }];
+      }, [activeSection, activeCategory, activeSubcategory, currentDrinkSubcategories, filteredDishes, categories, isAr]);
+
       return (
         <div className={`min-h-screen bg-[#070a0e] text-slate-100 mobile-safe-bottom ${isAr ? 'font-arabic' : 'font-sans'}`}>
           {/* TOAST ALERT */}
@@ -1017,110 +1085,117 @@
                   </button>
                 </div>
               ) : activeSection === 'drink' ? (
-                /* ================= DRINKS TABLE VIEW (جدول المشروبات: كأس أو قنينة) ================= */
-                <div className="w-full glass-panel rounded-3xl border border-gold-500/30 overflow-hidden shadow-2xl backdrop-blur-xl">
-                  {/* Table Header */}
-                  <div className="grid grid-cols-12 bg-jungle-950/95 border-b border-gold-500/30 px-3 sm:px-6 py-3 sm:py-3.5 text-xs sm:text-sm font-black text-gold-400 tracking-wider">
-                    <div className="col-span-7 sm:col-span-6 flex items-center gap-1.5">
-                      <Icon name="wine" className="w-4 h-4 text-gold-400" />
-                      <span>{isAr ? 'المشروب والتفاصيل' : 'Beverage & Details'}</span>
-                    </div>
-                    <div className="col-span-2 sm:col-span-3 text-center flex items-center justify-center gap-1 text-emerald-400">
-                      <Icon name="glass" className="w-3.5 h-3.5" />
-                      <span>{isAr ? 'كأس' : 'Glass'}</span>
-                    </div>
-                    <div className="col-span-3 text-center flex items-center justify-center gap-1 text-amber-400">
-                      <Icon name="bottle" className="w-3.5 h-3.5" />
-                      <span>{isAr ? 'قنينة' : 'Bottle'}</span>
-                    </div>
-                  </div>
-
-                  {/* Table Body */}
-                  <div className="divide-y divide-slate-800/80">
-                    {filteredDishes.map((dish, idx) => {
-                      const hasGlass = dish.priceGlass !== null && dish.priceGlass !== undefined && dish.priceGlass !== '';
-                      const hasBottle = dish.priceBottle !== null && dish.priceBottle !== undefined && dish.priceBottle !== '';
-                      const glassVal = hasGlass ? Number(dish.priceGlass) : null;
-                      const bottleVal = hasBottle ? Number(dish.priceBottle) : null;
-
-                      return (
-                        <div
-                          key={dish.id}
-                          onClick={() => setSelectedDishDetail(dish)}
-                          className={`grid grid-cols-12 items-center px-3 sm:px-6 py-3 sm:py-3.5 transition cursor-pointer hover:bg-gold-500/10 group ${
-                            idx % 2 === 0 ? 'bg-black/20' : 'bg-transparent'
-                          } ${!dish.inStock ? 'opacity-60' : ''}`}
-                        >
-                          {/* Drink Info Column */}
-                          <div className="col-span-7 sm:col-span-6 flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2 rtl:pr-0 rtl:pl-2">
-                            {/* Drink Image / Thumbnail */}
-                            {dish.image ? (
-                              <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl overflow-hidden border border-gold-500/30 flex-shrink-0 relative group-hover:scale-105 transition-transform shadow-md">
-                                <img
-                                  src={dish.image}
-                                  alt={dish.nameEn}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                />
-                              </div>
-                            ) : (
-                              <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl bg-jungle-900/90 border border-gold-500/25 flex items-center justify-center text-gold-400/80 flex-shrink-0 group-hover:scale-105 transition-transform shadow-md">
-                                <Icon name="wine" className="w-5 h-5 sm:w-6 sm:h-6" />
-                              </div>
-                            )}
-
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <h4 className="font-bold text-xs sm:text-base text-slate-100 group-hover:text-gold-300 transition-colors truncate leading-tight">
-                                  {isAr ? (dish.nameAr || dish.nameEn) : (dish.nameEn || dish.nameAr)}
-                                </h4>
-                                {dish.isChefSpecial && <span className="text-[10px] text-gold-400 font-bold">★</span>}
-                                {dish.isBestSeller && <span className="text-[10px] text-amber-400 font-bold">🔥</span>}
-                              </div>
-
-                              {(isAr ? dish.descAr : dish.descEn) && (
-                                <p className="text-[10px] sm:text-xs text-slate-400 truncate mt-0.5 leading-relaxed">
-                                  {isAr ? dish.descAr : dish.descEn}
-                                </p>
-                              )}
-
-                              {!dish.inStock && (
-                                <span className="inline-block mt-0.5 text-[9px] text-red-400 font-bold">
-                                  {isAr ? '● نفذت الكمية' : '● Sold Out'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Glass Price Column */}
-                          <div className="col-span-2 sm:col-span-3 text-center">
-                            {glassVal !== null && glassVal > 0 ? (
-                              <span className="inline-flex items-center justify-center px-2 sm:px-3 py-1 rounded-xl bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 text-xs sm:text-sm font-black font-mono shadow-sm">
-                                {glassVal}
-                              </span>
-                            ) : !hasGlass && !hasBottle && dish.price > 0 ? (
-                              <span className="inline-flex items-center justify-center px-2 sm:px-3 py-1 rounded-xl bg-gold-500/15 text-gold-300 border border-gold-500/30 text-xs sm:text-sm font-black font-mono">
-                                {formatPrice(dish.price)}
-                              </span>
-                            ) : (
-                              <span className="text-slate-600 text-sm font-mono">—</span>
-                            )}
-                          </div>
-
-                          {/* Bottle Price Column */}
-                          <div className="col-span-3 text-center">
-                            {bottleVal !== null && bottleVal > 0 ? (
-                              <span className="inline-flex items-center justify-center px-2 sm:px-3.5 py-1 rounded-xl bg-amber-950/80 text-amber-300 border border-amber-500/40 text-xs sm:text-sm font-black font-mono shadow-sm">
-                                {bottleVal}
-                              </span>
-                            ) : (
-                              <span className="text-slate-600 text-sm font-mono">—</span>
-                            )}
-                          </div>
+                /* ================= DRINKS TABLE VIEW (جدول المشروبات: باسم التصنيف الفرعي وأسعار كأس / قنينة) ================= */
+                <div className="space-y-6">
+                  {drinksGroups.map((group) => (
+                    <div
+                      key={group.id}
+                      className="w-full glass-panel rounded-3xl border border-gold-500/30 overflow-hidden shadow-2xl backdrop-blur-xl"
+                    >
+                      {/* Table Header with Subcategory Name (اسم التصنيف الفرعي) */}
+                      <div className="grid grid-cols-12 bg-jungle-950/95 border-b border-gold-500/30 px-3 sm:px-6 py-3 sm:py-3.5 text-xs sm:text-sm font-black text-gold-400 tracking-wider">
+                        <div className="col-span-7 sm:col-span-6 flex items-center gap-2 min-w-0 pr-2 rtl:pr-0 rtl:pl-2">
+                          <Icon name={group.icon || 'wine'} className="w-4 h-4 text-gold-400 flex-shrink-0" />
+                          <span className="truncate">{group.title}</span>
                         </div>
-                      );
-                    })}
-                  </div>
+                        <div className="col-span-2 sm:col-span-3 text-center flex items-center justify-center gap-1 text-emerald-400">
+                          <Icon name="glass" className="w-3.5 h-3.5" />
+                          <span>{isAr ? 'كأس' : 'Glass'}</span>
+                        </div>
+                        <div className="col-span-3 text-center flex items-center justify-center gap-1 text-amber-400">
+                          <Icon name="bottle" className="w-3.5 h-3.5" />
+                          <span>{isAr ? 'قنينة' : 'Bottle'}</span>
+                        </div>
+                      </div>
+
+                      {/* Table Body */}
+                      <div className="divide-y divide-slate-800/80">
+                        {group.dishes.map((dish, idx) => {
+                          const hasGlass = dish.priceGlass !== null && dish.priceGlass !== undefined && dish.priceGlass !== '';
+                          const hasBottle = dish.priceBottle !== null && dish.priceBottle !== undefined && dish.priceBottle !== '';
+                          const glassVal = hasGlass ? Number(dish.priceGlass) : null;
+                          const bottleVal = hasBottle ? Number(dish.priceBottle) : null;
+
+                          return (
+                            <div
+                              key={dish.id}
+                              onClick={() => setSelectedDishDetail(dish)}
+                              className={`grid grid-cols-12 items-center px-3 sm:px-6 py-3 sm:py-3.5 transition cursor-pointer hover:bg-gold-500/10 group ${
+                                idx % 2 === 0 ? 'bg-black/20' : 'bg-transparent'
+                              } ${!dish.inStock ? 'opacity-60' : ''}`}
+                            >
+                              {/* Drink Info Column */}
+                              <div className="col-span-7 sm:col-span-6 flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2 rtl:pr-0 rtl:pl-2">
+                                {/* Drink Image / Thumbnail */}
+                                {dish.image ? (
+                                  <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl overflow-hidden border border-gold-500/30 flex-shrink-0 relative group-hover:scale-105 transition-transform shadow-md">
+                                    <img
+                                      src={dish.image}
+                                      alt={dish.nameEn}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl bg-jungle-900/90 border border-gold-500/25 flex items-center justify-center text-gold-400/80 flex-shrink-0 group-hover:scale-105 transition-transform shadow-md">
+                                    <Icon name="wine" className="w-5 h-5 sm:w-6 sm:h-6" />
+                                  </div>
+                                )}
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <h4 className="font-bold text-xs sm:text-base text-slate-100 group-hover:text-gold-300 transition-colors truncate leading-tight">
+                                      {isAr ? (dish.nameAr || dish.nameEn) : (dish.nameEn || dish.nameAr)}
+                                    </h4>
+                                    {dish.isChefSpecial && <span className="text-[10px] text-gold-400 font-bold">★</span>}
+                                    {dish.isBestSeller && <span className="text-[10px] text-amber-400 font-bold">🔥</span>}
+                                  </div>
+
+                                  {(isAr ? dish.descAr : dish.descEn) && (
+                                    <p className="text-[10px] sm:text-xs text-slate-400 truncate mt-0.5 leading-relaxed">
+                                      {isAr ? dish.descAr : dish.descEn}
+                                    </p>
+                                  )}
+
+                                  {!dish.inStock && (
+                                    <span className="inline-block mt-0.5 text-[9px] text-red-400 font-bold">
+                                      {isAr ? '● نفذت الكمية' : '● Sold Out'}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Glass Price Column */}
+                              <div className="col-span-2 sm:col-span-3 text-center">
+                                {glassVal !== null && glassVal > 0 ? (
+                                  <span className="inline-flex items-center justify-center px-2 sm:px-3 py-1 rounded-xl bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 text-xs sm:text-sm font-black font-mono shadow-sm">
+                                    {glassVal}
+                                  </span>
+                                ) : !hasGlass && !hasBottle && dish.price > 0 ? (
+                                  <span className="inline-flex items-center justify-center px-2 sm:px-3 py-1 rounded-xl bg-gold-500/15 text-gold-300 border border-gold-500/30 text-xs sm:text-sm font-black font-mono">
+                                    {formatPrice(dish.price)}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-600 text-sm font-mono">—</span>
+                                )}
+                              </div>
+
+                              {/* Bottle Price Column */}
+                              <div className="col-span-3 text-center">
+                                {bottleVal !== null && bottleVal > 0 ? (
+                                  <span className="inline-flex items-center justify-center px-2 sm:px-3.5 py-1 rounded-xl bg-amber-950/80 text-amber-300 border border-amber-500/40 text-xs sm:text-sm font-black font-mono shadow-sm">
+                                    {bottleVal}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-600 text-sm font-mono">—</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : viewMode === 'grid' ? (
                 /* ================= FOOD GRID VIEW ================= */
