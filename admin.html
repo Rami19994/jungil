@@ -279,6 +279,26 @@
             <path d="M6 2v2"></path>
           </svg>
         ),
+        grip: (
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" className={className} {...props}>
+            <circle cx="9" cy="5" r="1.5"></circle>
+            <circle cx="15" cy="5" r="1.5"></circle>
+            <circle cx="9" cy="12" r="1.5"></circle>
+            <circle cx="15" cy="12" r="1.5"></circle>
+            <circle cx="9" cy="19" r="1.5"></circle>
+            <circle cx="15" cy="19" r="1.5"></circle>
+          </svg>
+        ),
+        arrowUp: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <polyline points="18 15 12 9 6 15"></polyline>
+          </svg>
+        ),
+        arrowDown: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        ),
       };
       return icons[name] || <span className={className}>•</span>;
     };
@@ -353,6 +373,14 @@
       const [dishSectionFilter, setDishSectionFilter] = useState('all'); // 'all' | 'food' | 'drink'
       const [dishImagePreview, setDishImagePreview] = useState('');
       const [isImageProcessing, setIsImageProcessing] = useState(false);
+
+      // Drag, Drop & Touch Reordering State
+      const [draggedDishId, setDraggedDishId] = useState(null);
+      const [dragOverDishId, setDragOverDishId] = useState(null);
+      const [isReordering, setIsReordering] = useState(false);
+      const touchTimerRef = useRef(null);
+      const touchStartPosRef = useRef({ x: 0, y: 0 });
+      const activeTouchDishIdRef = useRef(null);
 
       // Toast Notifications
       const [toast, setToast] = useState(null);
@@ -773,6 +801,172 @@
         }
       };
 
+      // Reorder Dishes Handler (Saves order changes permanently to TiDB Cloud)
+      const handleReorderDishes = async (sourceId, targetId) => {
+        if (!sourceId || !targetId || sourceId === targetId) return;
+        const currentList = [...filteredAdminDishes];
+        const sourceIndex = currentList.findIndex(d => d.id === sourceId);
+        const targetIndex = currentList.findIndex(d => d.id === targetId);
+        if (sourceIndex === -1 || targetIndex === -1) return;
+
+        // Reposition in current list
+        const [movedItem] = currentList.splice(sourceIndex, 1);
+        currentList.splice(targetIndex, 0, movedItem);
+
+        // Assign progressive displayOrder
+        const reorderedOrders = currentList.map((item, index) => ({
+          id: item.id,
+          displayOrder: index,
+        }));
+
+        const idToOrder = new Map(reorderedOrders.map(o => [o.id, o.displayOrder]));
+
+        // Optimistically update local dishes state
+        setDishes(prev => {
+          return prev.map(d => {
+            if (idToOrder.has(d.id)) {
+              return { ...d, displayOrder: idToOrder.get(d.id) };
+            }
+            return d;
+          });
+        });
+
+        // Persist to TiDB Cloud Serverless API
+        try {
+          setIsReordering(true);
+          const res = await fetch('/api/dishes/reorder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orders: reorderedOrders }),
+          });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || 'Failed to persist reorder');
+          }
+          showToast(isAr ? '✓ تم حفظ الترتيب الجديد للمشروبات بنجاح' : '✓ Drink order saved successfully');
+          if (syncChannel) syncChannel.postMessage({ type: 'DISHES_UPDATED', time: Date.now() });
+        } catch (err) {
+          console.error('Reorder save error:', err);
+          showToast(err.message || (isAr ? 'حدث خطأ أثناء حفظ الترتيب' : 'Error saving reorder'), 'error');
+          await loadData();
+        } finally {
+          setIsReordering(false);
+          setDraggedDishId(null);
+          setDragOverDishId(null);
+        }
+      };
+
+      // Arrow Shift Handler (Move item 1 step up or down)
+      const handleShiftDish = (dishId, direction) => {
+        const currentList = [...filteredAdminDishes];
+        const index = currentList.findIndex(d => d.id === dishId);
+        if (index === -1) return;
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= currentList.length) return;
+        const targetId = currentList[targetIndex].id;
+        handleReorderDishes(dishId, targetId);
+      };
+
+      // Touch Drag & Long-Press Implementation (for mobile touchscreens)
+      const handleTouchStart = (dishId, e) => {
+        if (dishSearch.trim()) return;
+        const touch = e.touches[0];
+        touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+
+        if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+
+        touchTimerRef.current = setTimeout(() => {
+          activeTouchDishIdRef.current = dishId;
+          setDraggedDishId(dishId);
+          if (navigator.vibrate) {
+            try { navigator.vibrate(40); } catch (_) {}
+          }
+        }, 300);
+      };
+
+      const handleTouchMove = (e) => {
+        if (!touchStartPosRef.current) return;
+        const touch = e.touches[0];
+
+        // If long press not yet triggered, cancel if user started scrolling
+        if (!activeTouchDishIdRef.current) {
+          const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
+          const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
+          if (dx > 10 || dy > 10) {
+            if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+          }
+          return;
+        }
+
+        // In drag mode: prevent default scroll and track hover over other dishes
+        if (e.cancelable) e.preventDefault();
+
+        const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (!targetEl) return;
+
+        const dishContainer = targetEl.closest('[data-dish-id]');
+        if (dishContainer) {
+          const overId = dishContainer.getAttribute('data-dish-id');
+          if (overId && overId !== activeTouchDishIdRef.current) {
+            setDragOverDishId(overId);
+          }
+        }
+      };
+
+      const handleTouchEnd = () => {
+        if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+
+        const sourceId = activeTouchDishIdRef.current;
+        const targetId = dragOverDishId;
+
+        if (sourceId && targetId && sourceId !== targetId) {
+          handleReorderDishes(sourceId, targetId);
+        }
+
+        activeTouchDishIdRef.current = null;
+        setDraggedDishId(null);
+        setDragOverDishId(null);
+      };
+
+      // HTML5 Drag & Drop Implementation (for desktop / mouse)
+      const handleDragStart = (dishId, e) => {
+        if (dishSearch.trim()) return;
+        e.dataTransfer.setData('text/plain', dishId);
+        e.dataTransfer.effectAllowed = 'move';
+        setDraggedDishId(dishId);
+      };
+
+      const handleDragOver = (dishId, e) => {
+        if (dishSearch.trim()) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragOverDishId !== dishId) {
+          setDragOverDishId(dishId);
+        }
+      };
+
+      const handleDragLeave = (dishId, e) => {
+        if (dragOverDishId === dishId) {
+          setDragOverDishId(null);
+        }
+      };
+
+      const handleDrop = (dishId, e) => {
+        if (dishSearch.trim()) return;
+        e.preventDefault();
+        const sourceId = e.dataTransfer.getData('text/plain') || draggedDishId;
+        if (sourceId && dishId && sourceId !== dishId) {
+          handleReorderDishes(sourceId, dishId);
+        }
+        setDraggedDishId(null);
+        setDragOverDishId(null);
+      };
+
+      const handleDragEnd = () => {
+        setDraggedDishId(null);
+        setDragOverDishId(null);
+      };
+
       // Add Category
       const handleAddCategory = async (e) => {
         e.preventDefault();
@@ -943,7 +1137,7 @@
             if (!matchNameEn && !matchNameAr) return false;
           }
           return true;
-        });
+        }).sort((a, b) => (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0));
       }, [dishes, categories, dishSectionFilter, dishCategoryFilter, dishSearch]);
 
       // If not authenticated, render Login Screen
@@ -1246,33 +1440,129 @@
                   </select>
                 </div>
 
+                {/* Reorder Guidance Banner */}
+                <div className="p-3 rounded-xl bg-gradient-to-r from-gold-500/15 via-jungle-900/60 to-gold-500/10 border border-gold-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-gold-300 shadow-sm">
+                  <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                    <div className="w-6 h-6 rounded-lg bg-gold-500/20 flex items-center justify-center text-gold-400 flex-shrink-0">
+                      <Icon name="grip" className="w-3.5 h-3.5" />
+                    </div>
+                    <span>
+                      {isAr
+                        ? 'إعادة ترتيب الأصناف: اضغط طويلاً على اسم المشروب/الصنف واسحبه إلى أي مكان، أو استخدم مقبض السحب (⠿) أو أزرار (▲ ▼). يُحفظ الترتيب تلقائياً بالقائمة فوراً.'
+                        : 'Reorder Items: Long-press item name and drag it, or use the grip handle (⠿) or (▲ ▼) arrows. Saves to menu instantly.'}
+                    </span>
+                  </div>
+                  {isReordering ? (
+                    <div className="flex items-center space-x-1.5 rtl:space-x-reverse text-emerald-400 text-[11px] font-bold animate-pulse flex-shrink-0 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                      <Icon name="sparkles" className="w-3.5 h-3.5 animate-spin" />
+                      <span>{isAr ? 'جاري حفظ الترتيب...' : 'Saving order...'}</span>
+                    </div>
+                  ) : dishSearch.trim() ? (
+                    <span className="text-[11px] text-amber-300 font-medium bg-amber-950/60 px-2.5 py-1 rounded-lg border border-amber-500/30 flex-shrink-0">
+                      {isAr ? '⚠️ امسح نص البحث لتفعيل السحب' : '⚠️ Clear search to reorder'}
+                    </span>
+                  ) : null}
+                </div>
+
                 {/* Mobile Cards View */}
                 <div className="md:hidden space-y-3">
-                  {filteredAdminDishes.map((dish) => {
+                  {filteredAdminDishes.map((dish, idx) => {
                     const catObj = categories.find(c => c.id === dish.categoryId);
                     const parentCat = catObj?.parentId ? categories.find(p => p.id === catObj.parentId) : null;
                     const isDrink = catObj?.type === 'drink';
+                    const isBeingDragged = draggedDishId === dish.id;
+                    const isDragOver = dragOverDishId === dish.id && !isBeingDragged;
+
                     return (
-                      <div key={dish.id} className="glass-card rounded-xl p-3.5 border border-gold-500/20 flex gap-3">
+                      <div
+                        key={dish.id}
+                        data-dish-id={dish.id}
+                        draggable={!dishSearch.trim()}
+                        onDragStart={(e) => handleDragStart(dish.id, e)}
+                        onDragOver={(e) => handleDragOver(dish.id, e)}
+                        onDragLeave={(e) => handleDragLeave(dish.id, e)}
+                        onDrop={(e) => handleDrop(dish.id, e)}
+                        onDragEnd={handleDragEnd}
+                        className={`glass-card rounded-xl p-3 border flex gap-2.5 relative transition-all duration-200 select-none ${
+                          isBeingDragged
+                            ? 'opacity-40 scale-[0.98] ring-2 ring-gold-400 bg-gold-500/10 border-gold-400 shadow-2xl'
+                            : isDragOver
+                              ? 'border-t-4 border-gold-400 bg-gold-500/20 shadow-gold-glow'
+                              : 'border-gold-500/20'
+                        }`}
+                      >
+                        {/* Drag Handle & Shift Controls */}
+                        <div className="flex flex-col items-center justify-between py-0.5 flex-shrink-0 border-e border-gold-500/15 pe-2 rtl:pe-0 rtl:ps-2 rtl:border-e-0 rtl:border-s">
+                          <div
+                            onTouchStart={(e) => handleTouchStart(dish.id, e)}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                            className="cursor-grab active:cursor-grabbing p-1.5 rounded-lg bg-jungle-900/90 border border-gold-500/30 text-gold-400 hover:text-white hover:bg-gold-500/20 transition active:scale-95"
+                            title={isAr ? 'اضغط واسحب لتغيير المكان' : 'Drag to reorder'}
+                          >
+                            <Icon name="grip" className="w-4 h-4" />
+                          </div>
+
+                          <span className="text-[10px] font-mono font-bold text-gold-400/90 my-1 bg-gold-500/10 px-1 rounded">
+                            #{idx + 1}
+                          </span>
+
+                          <div className="flex flex-col gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleShiftDish(dish.id, 'up')}
+                              disabled={idx === 0 || !!dishSearch.trim()}
+                              className="p-1 rounded bg-jungle-900 border border-slate-700 text-slate-300 hover:text-gold-300 hover:border-gold-500 disabled:opacity-20 active:scale-95 transition"
+                              title={isAr ? 'تحريك للأعلى' : 'Move up'}
+                            >
+                              <Icon name="arrowUp" className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleShiftDish(dish.id, 'down')}
+                              disabled={idx === filteredAdminDishes.length - 1 || !!dishSearch.trim()}
+                              className="p-1 rounded bg-jungle-900 border border-slate-700 text-slate-300 hover:text-gold-300 hover:border-gold-500 disabled:opacity-20 active:scale-95 transition"
+                              title={isAr ? 'تحريك للأسفل' : 'Move down'}
+                            >
+                              <Icon name="arrowDown" className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Image / Icon */}
                         {dish.image ? (
                           <img
                             src={dish.image}
                             alt={dish.nameEn}
-                            className="w-16 h-16 rounded-lg object-cover border border-gold-500/30 flex-shrink-0"
+                            className="w-14 h-14 rounded-lg object-cover border border-gold-500/30 flex-shrink-0 self-center"
                             onError={(e) => {
                               e.target.style.display = 'none';
                               if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'flex';
                             }}
                           />
                         ) : null}
-                        <div className={`${dish.image ? 'hidden' : 'flex'} w-16 h-16 rounded-lg bg-jungle-900 border border-gold-500/20 items-center justify-center text-gold-400/60 flex-shrink-0`}>
+                        <div className={`${dish.image ? 'hidden' : 'flex'} w-14 h-14 rounded-lg bg-jungle-900 border border-gold-500/20 items-center justify-center text-gold-400/60 flex-shrink-0 self-center`}>
                           <Icon name={isDrink ? 'wine' : 'utensils'} className="w-6 h-6" />
                         </div>
+
+                        {/* Details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
-                            <h4 className="font-bold text-xs sm:text-sm text-slate-100 truncate">
-                              {isAr ? dish.nameAr : dish.nameEn}
-                            </h4>
+                            {/* Touch/Long press target on title */}
+                            <div
+                              onTouchStart={(e) => handleTouchStart(dish.id, e)}
+                              onTouchMove={handleTouchMove}
+                              onTouchEnd={handleTouchEnd}
+                              className="min-w-0 flex-1 cursor-grab"
+                            >
+                              <h4 className="font-bold text-xs sm:text-sm text-slate-100 truncate active:text-gold-300 transition">
+                                {isAr ? dish.nameAr : dish.nameEn}
+                              </h4>
+                              <p className="text-[11px] text-gold-400/80 truncate">
+                                {isAr ? dish.nameEn : dish.nameAr}
+                              </p>
+                            </div>
+
                             <div className="text-end flex-shrink-0">
                               {(dish.priceGlass || dish.priceBottle) ? (
                                 <div className="text-[11px] font-black text-gold-300 leading-tight">
@@ -1286,9 +1576,7 @@
                               )}
                             </div>
                           </div>
-                          <p className="text-[11px] text-gold-400/80 truncate">
-                            {isAr ? dish.nameEn : dish.nameAr}
-                          </p>
+
                           <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] px-2 py-0.5 rounded bg-jungle-900 border border-gold-500/20 text-gold-300 font-semibold">
                               {parentCat ? `${isAr ? parentCat.nameAr : parentCat.nameEn} > ` : ''}
@@ -1298,6 +1586,7 @@
                               {isDrink ? (isAr ? '🍸 مشروب' : '🍸 Drink') : (isAr ? '🍽️ مأكولات' : '🍽️ Food')}
                             </span>
                           </div>
+
                           <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800">
                             <button
                               onClick={() => handleToggleStock(dish.id)}
@@ -1334,6 +1623,7 @@
                     <table className="w-full text-left rtl:text-right text-xs">
                       <thead className="bg-jungle-950/80 text-gold-300 font-bold uppercase tracking-wider border-b border-gold-500/20">
                         <tr>
+                          <th className="p-4 w-14 text-center">{isAr ? 'الترتيب' : 'Order'}</th>
                           <th className="p-4">{isAr ? 'الصنف والصورة' : 'Item & Photo'}</th>
                           <th className="p-4">{isAr ? 'القسم والتصنيف' : 'Section & Category'}</th>
                           <th className="p-4">{isAr ? 'السعر (أساسي / كأس / قنينة)' : 'Price (Regular / Glass / Bottle)'}</th>
@@ -1343,12 +1633,66 @@
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/80">
-                        {filteredAdminDishes.map((dish) => {
+                        {filteredAdminDishes.map((dish, idx) => {
                           const catObj = categories.find(c => c.id === dish.categoryId);
                           const parentCat = catObj?.parentId ? categories.find(p => p.id === catObj.parentId) : null;
                           const isDrink = catObj?.type === 'drink';
+                          const isBeingDragged = draggedDishId === dish.id;
+                          const isDragOver = dragOverDishId === dish.id && !isBeingDragged;
+
                           return (
-                            <tr key={dish.id} className="hover:bg-jungle-900/40 transition">
+                            <tr
+                              key={dish.id}
+                              data-dish-id={dish.id}
+                              draggable={!dishSearch.trim()}
+                              onDragStart={(e) => handleDragStart(dish.id, e)}
+                              onDragOver={(e) => handleDragOver(dish.id, e)}
+                              onDragLeave={(e) => handleDragLeave(dish.id, e)}
+                              onDrop={(e) => handleDrop(dish.id, e)}
+                              onDragEnd={handleDragEnd}
+                              className={`transition-all duration-200 select-none ${
+                                isBeingDragged
+                                  ? 'opacity-40 bg-gold-500/10 scale-[0.99] ring-2 ring-gold-400'
+                                  : isDragOver
+                                    ? 'border-t-4 border-gold-400 bg-gold-500/20 shadow-gold-glow'
+                                    : 'hover:bg-jungle-900/40'
+                              }`}
+                            >
+                              {/* Reorder Grip Handle & Shift Buttons Column */}
+                              <td className="p-3 text-center w-14">
+                                <div className="flex items-center justify-center space-x-1.5 rtl:space-x-reverse">
+                                  <div
+                                    onTouchStart={(e) => handleTouchStart(dish.id, e)}
+                                    onTouchMove={handleTouchMove}
+                                    onTouchEnd={handleTouchEnd}
+                                    className="cursor-grab active:cursor-grabbing p-1.5 rounded-lg text-gold-400/80 hover:text-gold-300 hover:bg-gold-500/15 transition active:scale-95"
+                                    title={isAr ? 'اضغط مطولاً واسحب لإعادة الترتيب' : 'Drag to reorder'}
+                                  >
+                                    <Icon name="grip" className="w-4 h-4" />
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleShiftDish(dish.id, 'up')}
+                                      disabled={idx === 0 || !!dishSearch.trim()}
+                                      className="p-0.5 text-slate-400 hover:text-gold-300 disabled:opacity-20 disabled:hover:text-slate-400 transition"
+                                      title={isAr ? 'تحريك لأعلى' : 'Move up'}
+                                    >
+                                      <Icon name="arrowUp" className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleShiftDish(dish.id, 'down')}
+                                      disabled={idx === filteredAdminDishes.length - 1 || !!dishSearch.trim()}
+                                      className="p-0.5 text-slate-400 hover:text-gold-300 disabled:opacity-20 disabled:hover:text-slate-400 transition"
+                                      title={isAr ? 'تحريك لأسفل' : 'Move down'}
+                                    >
+                                      <Icon name="arrowDown" className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+
                               <td className="p-4">
                                 <div className="flex items-center space-x-3 rtl:space-x-reverse">
                                   {dish.image ? (
@@ -1365,8 +1709,20 @@
                                   <div className={`${dish.image ? 'hidden' : 'flex'} w-12 h-12 rounded-lg bg-jungle-900 border border-gold-500/20 items-center justify-center text-gold-400/60 flex-shrink-0 text-xs`}>
                                     <Icon name={isDrink ? 'wine' : 'utensils'} className="w-5 h-5" />
                                   </div>
-                                  <div>
-                                    <div className="font-bold text-slate-100 text-sm">{dish.nameAr}</div>
+                                  <div
+                                    onTouchStart={(e) => handleTouchStart(dish.id, e)}
+                                    onTouchMove={handleTouchMove}
+                                    onTouchEnd={handleTouchEnd}
+                                    className="cursor-grab"
+                                  >
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-gold-500/10 text-gold-400 border border-gold-500/20">
+                                        #{idx + 1}
+                                      </span>
+                                      <span className="font-bold text-slate-100 text-sm hover:text-gold-300 transition">
+                                        {dish.nameAr}
+                                      </span>
+                                    </div>
                                     <div className="text-gold-400 text-xs">{dish.nameEn}</div>
                                   </div>
                                 </div>

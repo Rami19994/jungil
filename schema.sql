@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS dishes (
   `isVegetarian` TINYINT(1) DEFAULT 0,
   `isSpicy` TINYINT(1) DEFAULT 0,
   `inStock` TINYINT(1) DEFAULT 1,
+  `displayOrder` INT DEFAULT 0,
   `createdAt` VARCHAR(50),
   `updatedAt` VARCHAR(50),
   INDEX idx_dishes_category (`categoryId`)

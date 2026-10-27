@@ -633,7 +633,7 @@
           if (activeTagFilter === 'spicy' && !dish.isSpicy) return false;
 
           return true;
-        });
+        }).sort((a, b) => (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0));
       }, [dishes, categories, activeSection, activeCategory, activeSubcategory, activeTagFilter, searchQuery]);
 
       // Group drinks by subcategory (or active subcategory / category)

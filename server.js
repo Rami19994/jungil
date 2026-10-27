@@ -160,12 +160,13 @@ app.get('/api/menu', async (req, res) => {
     }
 
     const categories = await db.all('SELECT * FROM categories ORDER BY displayOrder ASC, nameEn ASC');
-    const dishesRaw = await db.all('SELECT * FROM dishes ORDER BY createdAt DESC, id DESC');
+    const dishesRaw = await db.all('SELECT * FROM dishes ORDER BY displayOrder ASC, createdAt DESC, id DESC');
     const dishes = dishesRaw.map(d => ({
       ...d,
       price: parseFloat(d.price) || 0,
       priceGlass: d.priceGlass !== null && d.priceGlass !== undefined && d.priceGlass !== '' ? parseFloat(d.priceGlass) : null,
       priceBottle: d.priceBottle !== null && d.priceBottle !== undefined && d.priceBottle !== '' ? parseFloat(d.priceBottle) : null,
+      displayOrder: Number(d.displayOrder) || 0,
       isChefSpecial: Boolean(d.isChefSpecial),
       isBestSeller: Boolean(d.isBestSeller),
       isVegetarian: Boolean(d.isVegetarian),
@@ -352,12 +353,13 @@ app.post('/api/categories/clear-all', async (req, res) => {
 // 8. Dishes (GET)
 app.get('/api/dishes', async (req, res) => {
   try {
-    const dishesRaw = await db.all('SELECT * FROM dishes ORDER BY createdAt DESC, id DESC');
+    const dishesRaw = await db.all('SELECT * FROM dishes ORDER BY displayOrder ASC, createdAt DESC, id DESC');
     const formatted = dishesRaw.map(d => ({
       ...d,
       price: parseFloat(d.price) || 0,
       priceGlass: d.priceGlass !== null && d.priceGlass !== undefined && d.priceGlass !== '' ? parseFloat(d.priceGlass) : null,
       priceBottle: d.priceBottle !== null && d.priceBottle !== undefined && d.priceBottle !== '' ? parseFloat(d.priceBottle) : null,
+      displayOrder: Number(d.displayOrder) || 0,
       isChefSpecial: Boolean(d.isChefSpecial),
       isBestSeller: Boolean(d.isBestSeller),
       isVegetarian: Boolean(d.isVegetarian),
@@ -385,12 +387,13 @@ app.post('/api/dishes', async (req, res) => {
 
     const priceGlass = d.priceGlass !== null && d.priceGlass !== undefined && d.priceGlass !== '' ? Number(d.priceGlass) : null;
     const priceBottle = d.priceBottle !== null && d.priceBottle !== undefined && d.priceBottle !== '' ? Number(d.priceBottle) : null;
+    const displayOrder = d.displayOrder !== undefined && d.displayOrder !== null && d.displayOrder !== '' ? Number(d.displayOrder) : 0;
 
     const sql = `
       INSERT INTO dishes (
         id, categoryId, nameEn, nameAr, descEn, descAr, price, priceGlass, priceBottle, image,
-        isChefSpecial, isBestSeller, isVegetarian, isSpicy, inStock, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        isChefSpecial, isBestSeller, isVegetarian, isSpicy, inStock, displayOrder, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         categoryId = VALUES(categoryId),
         nameEn = VALUES(nameEn),
@@ -406,6 +409,7 @@ app.post('/api/dishes', async (req, res) => {
         isVegetarian = VALUES(isVegetarian),
         isSpicy = VALUES(isSpicy),
         inStock = VALUES(inStock),
+        displayOrder = VALUES(displayOrder),
         updatedAt = VALUES(updatedAt)
     `;
 
@@ -425,6 +429,7 @@ app.post('/api/dishes', async (req, res) => {
       d.isVegetarian ? 1 : 0,
       d.isSpicy ? 1 : 0,
       d.inStock !== false ? 1 : 0,
+      displayOrder,
       now,
       now,
     ]);
@@ -468,13 +473,17 @@ app.put('/api/dishes/:id', async (req, res) => {
       ? (d.priceBottle !== null && d.priceBottle !== '' ? Number(d.priceBottle) : null)
       : (oldDish ? oldDish.priceBottle : null);
 
+    const displayOrder = d.displayOrder !== undefined
+      ? Number(d.displayOrder) || 0
+      : (oldDish ? (Number(oldDish.displayOrder) || 0) : 0);
+
     if (!oldDish) {
       // Dish doesn't exist yet: insert new
       const sqlInsert = `
         INSERT INTO dishes (
           id, categoryId, nameEn, nameAr, descEn, descAr, price, priceGlass, priceBottle, image,
-          isChefSpecial, isBestSeller, isVegetarian, isSpicy, inStock, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          isChefSpecial, isBestSeller, isVegetarian, isSpicy, inStock, displayOrder, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       await db.run(sqlInsert, [
         dishId,
@@ -492,6 +501,7 @@ app.put('/api/dishes/:id', async (req, res) => {
         d.isVegetarian ? 1 : 0,
         d.isSpicy ? 1 : 0,
         d.inStock !== false ? 1 : 0,
+        displayOrder,
         now,
         now,
       ]);
@@ -513,6 +523,7 @@ app.put('/api/dishes/:id', async (req, res) => {
           isVegetarian = ?,
           isSpicy = ?,
           inStock = ?,
+          displayOrder = ?,
           updatedAt = ?
         WHERE id = ?
       `;
@@ -532,6 +543,7 @@ app.put('/api/dishes/:id', async (req, res) => {
         d.isVegetarian !== undefined ? (d.isVegetarian ? 1 : 0) : oldDish.isVegetarian,
         d.isSpicy !== undefined ? (d.isSpicy ? 1 : 0) : oldDish.isSpicy,
         d.inStock !== undefined ? (d.inStock ? 1 : 0) : oldDish.inStock,
+        displayOrder,
         now,
         dishId,
       ]);
@@ -582,6 +594,40 @@ app.post('/api/dishes/clear-all', async (req, res) => {
     res.json({ success: true, message: 'All dishes permanently cleared from TiDB Cloud' });
   } catch (err) {
     console.error('Error clearing all dishes:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 12.5 Reorder Dishes Endpoint (Updates displayOrder permanently)
+app.post('/api/dishes/reorder', async (req, res) => {
+  try {
+    const { orders, dishIds } = req.body;
+    let listToUpdate = [];
+
+    if (Array.isArray(orders) && orders.length > 0) {
+      listToUpdate = orders.map(item => ({
+        id: String(item.id).trim(),
+        displayOrder: Number(item.displayOrder) || 0,
+      }));
+    } else if (Array.isArray(dishIds) && dishIds.length > 0) {
+      listToUpdate = dishIds.map((id, index) => ({
+        id: String(id).trim(),
+        displayOrder: index,
+      }));
+    }
+
+    if (listToUpdate.length === 0) {
+      return res.status(400).json({ error: 'No reorder data provided' });
+    }
+
+    for (const item of listToUpdate) {
+      await db.run('UPDATE dishes SET displayOrder = ? WHERE id = ?', [item.displayOrder, item.id]);
+    }
+
+    menuVersion = Date.now();
+    res.json({ success: true, count: listToUpdate.length, message: 'Dishes reordered successfully' });
+  } catch (err) {
+    console.error('Error reordering dishes:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -653,7 +699,7 @@ app.get('/api/backup', async (req, res) => {
       settings[row.key] = row.value;
     }
     const categories = await db.all('SELECT * FROM categories ORDER BY displayOrder ASC');
-    const dishes = await db.all('SELECT * FROM dishes ORDER BY createdAt DESC');
+    const dishes = await db.all('SELECT * FROM dishes ORDER BY displayOrder ASC, createdAt DESC');
 
     res.json({
       exportedAt: new Date().toISOString(),
@@ -713,8 +759,8 @@ app.post('/api/restore', async (req, res) => {
         await db.run(
           `INSERT INTO dishes (
             id, categoryId, nameEn, nameAr, descEn, descAr, price, priceGlass, priceBottle, image,
-            isChefSpecial, isBestSeller, isVegetarian, isSpicy, inStock, createdAt, updatedAt
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            isChefSpecial, isBestSeller, isVegetarian, isSpicy, inStock, displayOrder, createdAt, updatedAt
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             d.id,
             d.categoryId || '',
@@ -731,6 +777,7 @@ app.post('/api/restore', async (req, res) => {
             d.isVegetarian ? 1 : 0,
             d.isSpicy ? 1 : 0,
             d.inStock !== false ? 1 : 0,
+            Number(d.displayOrder) || 0,
             d.createdAt || now,
             d.updatedAt || now,
           ]

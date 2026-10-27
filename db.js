@@ -88,6 +88,7 @@ async function initDatabase() {
         \`isVegetarian\` TINYINT(1) DEFAULT 0,
         \`isSpicy\` TINYINT(1) DEFAULT 0,
         \`inStock\` TINYINT(1) DEFAULT 1,
+        \`displayOrder\` INT DEFAULT 0,
         \`createdAt\` VARCHAR(50),
         \`updatedAt\` VARCHAR(50)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -98,6 +99,7 @@ async function initDatabase() {
     try { await conn.execute("ALTER TABLE categories ADD COLUMN `parentId` VARCHAR(100) DEFAULT NULL"); } catch (_) {}
     try { await conn.execute("ALTER TABLE dishes ADD COLUMN `priceGlass` DECIMAL(10, 2) DEFAULT NULL"); } catch (_) {}
     try { await conn.execute("ALTER TABLE dishes ADD COLUMN `priceBottle` DECIMAL(10, 2) DEFAULT NULL"); } catch (_) {}
+    try { await conn.execute("ALTER TABLE dishes ADD COLUMN `displayOrder` INT DEFAULT 0"); } catch (_) {}
     try { await conn.execute("UPDATE categories SET `type` = 'food' WHERE `type` IS NULL OR `type` = ''"); } catch (_) {}
 
     // Check if initial settings exist
