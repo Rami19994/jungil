@@ -1629,6 +1629,23 @@
                     </div>
                   </div>
 
+                  {/* Currency */}
+                  <div>
+                    <label className="block font-semibold text-slate-300 mb-1">
+                      {isAr ? 'عملة الأسعار (تظهر بجانب سعر الوجبات والمشروبات للزبون)' : 'Price Currency (shown next to dish & drink prices)'}
+                    </label>
+                    <select
+                      id="settings-currency-select"
+                      value={settingsForm.currency || ''}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, currency: e.target.value })}
+                      className="w-full sm:w-1/2 bg-jungle-950 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400 cursor-pointer"
+                    >
+                      <option value="">{isAr ? 'بدون عملة (الرقم فقط)' : 'No currency (number only)'}</option>
+                      <option value="USD">{isAr ? '$ - دولار أمريكي' : '$ - US Dollar'}</option>
+                      <option value="IQD">{isAr ? 'IQD - دينار عراقي' : 'IQD - Iraqi Dinar'}</option>
+                    </select>
+                  </div>
+
                   {/* Address */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>

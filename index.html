@@ -579,9 +579,13 @@
         };
       }, [selectedDishDetail]);
 
-      // Format Price (pure number, zero currency)
+      // Format Price with the currency selected by the admin (USD = $, IQD = IQD, empty = number only)
       const formatPrice = (price) => {
-        return Number(price) || 0;
+        const num = Number(price) || 0;
+        const currency = (settings && settings.currency) || '';
+        if (currency === 'USD') return `$${num}`;
+        if (currency === 'IQD') return `${num} IQD`;
+        return num;
       };
 
       // Filtered Dishes
@@ -1169,7 +1173,7 @@
                               <div className="col-span-2 sm:col-span-3 text-center">
                                 {glassVal !== null && glassVal > 0 ? (
                                   <span className="inline-flex items-center justify-center px-2 sm:px-3 py-1 rounded-xl bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 text-xs sm:text-sm font-black font-mono shadow-sm">
-                                    {glassVal}
+                                    {formatPrice(glassVal)}
                                   </span>
                                 ) : !hasGlass && !hasBottle && dish.price > 0 ? (
                                   <span className="inline-flex items-center justify-center px-2 sm:px-3 py-1 rounded-xl bg-gold-500/15 text-gold-300 border border-gold-500/30 text-xs sm:text-sm font-black font-mono">
@@ -1184,7 +1188,7 @@
                               <div className="col-span-3 text-center">
                                 {bottleVal !== null && bottleVal > 0 ? (
                                   <span className="inline-flex items-center justify-center px-2 sm:px-3.5 py-1 rounded-xl bg-amber-950/80 text-amber-300 border border-amber-500/40 text-xs sm:text-sm font-black font-mono shadow-sm">
-                                    {bottleVal}
+                                    {formatPrice(bottleVal)}
                                   </span>
                                 ) : (
                                   <span className="text-slate-600 text-sm font-mono">—</span>
