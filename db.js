@@ -102,6 +102,112 @@ async function initDatabase() {
     try { await conn.execute("ALTER TABLE dishes ADD COLUMN `displayOrder` INT DEFAULT 0"); } catch (_) {}
     try { await conn.execute("UPDATE categories SET `type` = 'food' WHERE `type` IS NULL OR `type` = ''"); } catch (_) {}
 
+    // Check if initial shisha categories exist, if not, create defaults
+    try {
+      const shishaCountRow = await get("SELECT COUNT(*) as c FROM categories WHERE `type` = 'shisha'");
+      const shishaCount = shishaCountRow ? Number(shishaCountRow.c || 0) : 0;
+      if (shishaCount === 0) {
+        await conn.execute(`
+          INSERT INTO categories (id, nameEn, nameAr, icon, displayOrder, \`type\`, parentId)
+          VALUES 
+            ('cat-shisha-classic', 'Classic Shisha', 'أراكيل كلاسيك', 'shisha', 1, 'shisha', NULL),
+            ('cat-shisha-special', 'Special Shisha', 'أراكيل سبيشال جانغل', 'shisha', 2, 'shisha', NULL)
+          ON DUPLICATE KEY UPDATE nameEn = VALUES(nameEn)
+        `);
+
+        const now = new Date().toISOString();
+        const initialShishas = [
+          {
+            id: 'dish-shisha-apple',
+            categoryId: 'cat-shisha-classic',
+            nameEn: 'Double Apple Al Fakher',
+            nameAr: 'تفاحتين فاخر',
+            descEn: 'Classic double apple flavor served with premium natural charcoal',
+            descAr: 'نكهة التفاحتين الكلاسيكية الفاخرة مع جمر طبيعي',
+            price: 15000,
+            isBestSeller: 1,
+            isChefSpecial: 0,
+            displayOrder: 1,
+          },
+          {
+            id: 'dish-shisha-lemon-mint',
+            categoryId: 'cat-shisha-classic',
+            nameEn: 'Lemon Mint',
+            nameAr: 'ليمون ونعناع',
+            descEn: 'Refreshing crisp lemon and cool fresh mint blend',
+            descAr: 'مزيج منعش من الليمون والنعناع البارد',
+            price: 15000,
+            isBestSeller: 0,
+            isChefSpecial: 0,
+            displayOrder: 2,
+          },
+          {
+            id: 'dish-shisha-grape-mint',
+            categoryId: 'cat-shisha-classic',
+            nameEn: 'Grape Mint',
+            nameAr: 'عنب ونعناع',
+            descEn: 'Rich black grape flavor with an invigorating hint of mint',
+            descAr: 'نكهة العنب الأسود مع لمسة نعناع منعشة',
+            price: 15000,
+            isBestSeller: 0,
+            isChefSpecial: 0,
+            displayOrder: 3,
+          },
+          {
+            id: 'dish-shisha-jungle-sig',
+            categoryId: 'cat-shisha-special',
+            nameEn: 'Jungle Signature Blend',
+            nameAr: 'خلطة جانغل الخاصة',
+            descEn: 'Exclusive tropical fruit blend crafted by Jungle for an ultra-luxury smoking experience',
+            descAr: 'خلطة فواكه استوائية خاصة من ابتكار جانغل مع إحساس منعش وفخم',
+            price: 20000,
+            isBestSeller: 1,
+            isChefSpecial: 1,
+            displayOrder: 1,
+          },
+          {
+            id: 'dish-shisha-love66',
+            categoryId: 'cat-shisha-special',
+            nameEn: 'Love 66 Special',
+            nameAr: 'حب 66 (Love 66)',
+            descEn: 'Melon, watermelon, and passion fruit with icy cooling mint',
+            descAr: 'مزيج البطيخ والشمام والباشن فروت مع لمسة نعناع مثلجة',
+            price: 18000,
+            isBestSeller: 1,
+            isChefSpecial: 0,
+            displayOrder: 2,
+          },
+        ];
+
+        for (const s of initialShishas) {
+          await conn.execute(
+            `INSERT INTO dishes (
+              id, categoryId, nameEn, nameAr, descEn, descAr, price, priceGlass, priceBottle, image,
+              isChefSpecial, isBestSeller, isVegetarian, isSpicy, inStock, displayOrder, createdAt, updatedAt
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, '', ?, ?, 0, 0, 1, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE nameEn = VALUES(nameEn)`,
+            [
+              s.id,
+              s.categoryId,
+              s.nameEn,
+              s.nameAr,
+              s.descEn,
+              s.descAr,
+              s.price,
+              s.isChefSpecial,
+              s.isBestSeller,
+              s.displayOrder,
+              now,
+              now,
+            ]
+          );
+        }
+        console.log('✓ Initialized default Hookah & Shisha categories & items');
+      }
+    } catch (shishaErr) {
+      console.warn('Note on Shisha init:', shishaErr.message);
+    }
+
     // Check if initial settings exist
     const isInit = await get("SELECT `value` FROM settings WHERE `key` = 'isInitialized'");
     if (!isInit) {

@@ -266,6 +266,20 @@
             <path d="M6 2v2"></path>
           </svg>
         ),
+        shisha: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M10 2h4"></path>
+            <path d="M12 2v3"></path>
+            <path d="M8 5h8"></path>
+            <path d="M12 5v4"></path>
+            <path d="M9 9h6"></path>
+            <circle cx="12" cy="15" r="4"></circle>
+            <path d="M12 19v3"></path>
+            <path d="M8 22h8"></path>
+            <path d="M15 13.5c1.8-1 3.5-.5 4.5 1s.5 3.5-1 4.5"></path>
+            <path d="M18.5 19l2.5 2.5"></path>
+          </svg>
+        ),
         sparkles: (
           <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" className={className} {...props}>
             <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"></path>
@@ -404,7 +418,7 @@
       const [isLoading, setIsLoading] = useState(true);
 
       // Filters & Search
-      const [activeSection, setActiveSection] = useState('food'); // 'food' | 'drink'
+      const [activeSection, setActiveSection] = useState('food'); // 'food' | 'drink' | 'shisha'
       const [activeCategory, setActiveCategory] = useState('');
       const [activeSubcategory, setActiveSubcategory] = useState('all');
       const [searchQuery, setSearchQuery] = useState('');
@@ -539,6 +553,15 @@
         return categories.filter(c => c.type === 'drink' && c.parentId === activeCategory);
       }, [categories, activeSection, activeCategory]);
 
+      const shishaMainCategories = useMemo(() => {
+        return categories.filter(c => c.type === 'shisha' && !c.parentId);
+      }, [categories]);
+
+      const currentShishaSubcategories = useMemo(() => {
+        if (activeSection !== 'shisha' || !activeCategory) return [];
+        return categories.filter(c => c.type === 'shisha' && c.parentId === activeCategory);
+      }, [categories, activeSection, activeCategory]);
+
       // Automatically keep activeCategory aligned with active section
       useEffect(() => {
         if (activeSection === 'food') {
@@ -546,7 +569,7 @@
             if (foodCategories.length > 0) setActiveCategory(foodCategories[0].id);
             else setActiveCategory('');
           }
-        } else {
+        } else if (activeSection === 'drink') {
           if (!activeCategory || !drinkMainCategories.some(c => c.id === activeCategory)) {
             if (drinkMainCategories.length > 0) {
               setActiveCategory(drinkMainCategories[0].id);
@@ -555,8 +578,17 @@
               setActiveCategory('');
             }
           }
+        } else if (activeSection === 'shisha') {
+          if (!activeCategory || !shishaMainCategories.some(c => c.id === activeCategory)) {
+            if (shishaMainCategories.length > 0) {
+              setActiveCategory(shishaMainCategories[0].id);
+              setActiveSubcategory('all');
+            } else {
+              setActiveCategory('');
+            }
+          }
         }
-      }, [activeSection, foodCategories, drinkMainCategories]);
+      }, [activeSection, foodCategories, drinkMainCategories, shishaMainCategories]);
 
       // Handle Escape key and disable background scrolling when modal is open
       useEffect(() => {
@@ -610,7 +642,7 @@
           if (activeSection === 'food') {
             if (dishType !== 'food') return false;
             if (activeCategory && dish.categoryId !== activeCategory) return false;
-          } else {
+          } else if (activeSection === 'drink') {
             // Drinks section
             if (dishType !== 'drink') return false;
             if (!activeCategory) return false;
@@ -623,6 +655,17 @@
             } else {
               // All drinks under this parent category (or directly in this parent)
               if (dish.categoryId !== activeCategory && !subCatIds.includes(dish.categoryId)) return false;
+            }
+          } else if (activeSection === 'shisha') {
+            // Shisha section
+            if (dishType !== 'shisha') return false;
+            if (activeCategory) {
+              const subCatIds = categories.filter(c => c.parentId === activeCategory).map(c => c.id);
+              if (activeSubcategory !== 'all') {
+                if (dish.categoryId !== activeSubcategory) return false;
+              } else {
+                if (dish.categoryId !== activeCategory && !subCatIds.includes(dish.categoryId)) return false;
+              }
             }
           }
 
@@ -881,22 +924,22 @@
                   </div>
                 </div>
 
-                {/* Primary Section Switcher: Food (مأكولات) vs Drinks (مشروبات) */}
-                <div className="flex items-center justify-center gap-2 sm:gap-3 max-w-md mx-auto p-1 rounded-2xl bg-black/60 border border-gold-500/30 backdrop-blur-xl">
+                {/* Primary Section Switcher: Food (مأكولات) vs Drinks (مشروبات) vs Hookah (أراكيل) */}
+                <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 max-w-xl mx-auto p-1 rounded-2xl bg-black/60 border border-gold-500/30 backdrop-blur-xl">
                   <button
                     onClick={() => {
                       setActiveSection('food');
                       setActiveSubcategory('all');
                       if (foodCategories.length > 0) setActiveCategory(foodCategories[0].id);
                     }}
-                    className={`flex-1 py-2 sm:py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-1.5 sm:gap-2 ${
                       activeSection === 'food'
                         ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-[1.02]'
                         : 'text-slate-300 hover:text-white hover:bg-jungle-900/60'
                     }`}
                   >
                     <Icon name="utensils" className="w-4 h-4 flex-shrink-0" />
-                    <span>{isAr ? '🍽️ مأكولات' : '🍽️ Food & Dining'}</span>
+                    <span>{isAr ? 'مأكولات' : 'Food & Dining'}</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/30 font-mono">
                       {dishes.filter(d => {
                         const c = categories.find(cat => cat.id === d.categoryId);
@@ -911,18 +954,40 @@
                       setActiveSubcategory('all');
                       if (drinkMainCategories.length > 0) setActiveCategory(drinkMainCategories[0].id);
                     }}
-                    className={`flex-1 py-2 sm:py-2.5 px-3 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-1.5 sm:gap-2 ${
                       activeSection === 'drink'
                         ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-[1.02]'
                         : 'text-slate-300 hover:text-white hover:bg-jungle-900/60'
                     }`}
                   >
                     <Icon name="wine" className="w-4 h-4 flex-shrink-0" />
-                    <span>{isAr ? '🍸 مشروبات' : '🍸 Beverages & Bar'}</span>
+                    <span>{isAr ? 'مشروبات' : 'Beverages & Bar'}</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/30 font-mono">
                       {dishes.filter(d => {
                         const c = categories.find(cat => cat.id === d.categoryId);
                         return c && c.type === 'drink';
+                      }).length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveSection('shisha');
+                      setActiveSubcategory('all');
+                      if (shishaMainCategories.length > 0) setActiveCategory(shishaMainCategories[0].id);
+                    }}
+                    className={`flex-1 py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl text-xs sm:text-sm font-black transition flex items-center justify-center gap-1.5 sm:gap-2 ${
+                      activeSection === 'shisha'
+                        ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-[1.02]'
+                        : 'text-slate-300 hover:text-white hover:bg-jungle-900/60'
+                    }`}
+                  >
+                    <Icon name="shisha" className="w-4 h-4 flex-shrink-0" />
+                    <span>{isAr ? 'أراكيل' : 'Hookah & Shisha'}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/30 font-mono">
+                      {dishes.filter(d => {
+                        const c = categories.find(cat => cat.id === d.categoryId);
+                        return c && c.type === 'shisha';
                       }).length}
                     </span>
                   </button>
@@ -956,7 +1021,7 @@
                           );
                         })
                       )
-                    ) : (
+                    ) : activeSection === 'drink' ? (
                       /* DRINK MAIN CATEGORIES */
                       drinkMainCategories.length === 0 ? (
                         <span className="text-xs text-slate-400 py-1">{isAr ? 'لا توجد تصنيفات مشروبات' : 'No beverage categories'}</span>
@@ -985,14 +1050,114 @@
                           );
                         })
                       )
+                    ) : (
+                      /* SHISHA CATEGORIES */
+                      shishaMainCategories.length === 0 ? (
+                        <span className="text-xs text-slate-400 py-1">{isAr ? 'لا توجد تصنيفات أراكيل' : 'No hookah categories'}</span>
+                      ) : (
+                        shishaMainCategories.map((cat) => {
+                          const subCatIds = categories.filter(c => c.parentId === cat.id).map(c => c.id);
+                          const count = dishes.filter(d => d.categoryId === cat.id || subCatIds.includes(d.categoryId)).length;
+                          const isActive = activeCategory === cat.id;
+                          return (
+                            <button
+                              key={cat.id}
+                              onClick={() => {
+                                setActiveCategory(cat.id);
+                                setActiveSubcategory('all');
+                              }}
+                              className={`flex-shrink-0 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 rtl:space-x-reverse ${
+                                isActive
+                                  ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-obsidian-950 shadow-gold-glow scale-105'
+                                  : 'glass-panel text-slate-300 hover:text-white'
+                              }`}
+                            >
+                              <Icon name={cat.icon || 'shisha'} className="w-3.5 h-3.5" />
+                              <span>{isAr ? cat.nameAr : cat.nameEn}</span>
+                              <span className="text-[10px] opacity-80 font-mono">({count})</span>
+                            </button>
+                          );
+                        })
+                      )
                     )}
                   </div>
                 </div>
 
-                {/* DRINKS NESTED SUBCATEGORIES (تفرعات تصنيفات المشروبات) */}
+                {/* DRINKS NESTED SUBCATEGORIES */}
                 {activeSection === 'drink' && currentDrinkSubcategories.length > 0 && (
                   <div className="flex items-center space-x-1.5 rtl:space-x-reverse overflow-x-auto hide-scrollbar pt-1 pb-1 border-t border-gold-500/15">
                     <span className="text-[11px] font-bold text-gold-400/90 px-2 flex-shrink-0 flex items-center gap-1">
+                      <span>↳</span>
+                      <span>{isAr ? 'التصنيف الفرعي:' : 'Subcategory:'}</span>
+                    </span>
+                    <button
+                      onClick={() => setActiveSubcategory('all')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition flex-shrink-0 ${
+                        activeSubcategory === 'all'
+                          ? 'bg-gold-500 text-obsidian-950 shadow-gold-glow-sm'
+                          : 'bg-jungle-900/90 text-slate-300 border border-slate-700 hover:border-gold-500/40'
+                      }`}
+                    >
+                      {isAr ? 'الكل' : 'All'}
+                    </button>
+                    {currentDrinkSubcategories.map(sub => {
+                      const count = dishes.filter(d => d.categoryId === sub.id).length;
+                      const isActive = activeSubcategory === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => setActiveSubcategory(sub.id)}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${
+                            isActive
+                              ? 'bg-gold-500 text-obsidian-950 shadow-gold-glow-sm'
+                              : 'bg-jungle-900/90 text-slate-300 border border-slate-700 hover:border-gold-500/40'
+                          }`}
+                        >
+                          <span>{isAr ? sub.nameAr : sub.nameEn}</span>
+                          <span className="text-[10px] opacity-75 font-mono">({count})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* SHISHA NESTED SUBCATEGORIES */}
+                {activeSection === 'shisha' && currentShishaSubcategories.length > 0 && (
+                  <div className="flex items-center space-x-1.5 rtl:space-x-reverse overflow-x-auto hide-scrollbar pt-1 pb-1 border-t border-gold-500/15">
+                    <span className="text-[11px] font-bold text-gold-400/90 px-2 flex-shrink-0 flex items-center gap-1">
+                      <span>↳</span>
+                      <span>{isAr ? 'التصنيف الفرعي:' : 'Subcategory:'}</span>
+                    </span>
+                    <button
+                      onClick={() => setActiveSubcategory('all')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition flex-shrink-0 ${
+                        activeSubcategory === 'all'
+                          ? 'bg-gold-500 text-obsidian-950 shadow-gold-glow-sm'
+                          : 'bg-jungle-900/90 text-slate-300 border border-slate-700 hover:border-gold-500/40'
+                      }`}
+                    >
+                      {isAr ? 'الكل' : 'All'}
+                    </button>
+                    {currentShishaSubcategories.map(sub => {
+                      const count = dishes.filter(d => d.categoryId === sub.id).length;
+                      const isActive = activeSubcategory === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => setActiveSubcategory(sub.id)}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition flex-shrink-0 flex items-center gap-1.5 ${
+                            isActive
+                              ? 'bg-gold-500 text-obsidian-950 shadow-gold-glow-sm'
+                              : 'bg-jungle-900/90 text-slate-300 border border-slate-700 hover:border-gold-500/40'
+                          }`}
+                        >
+                          <span>{isAr ? sub.nameAr : sub.nameEn}</span>
+                          <span className="text-[10px] opacity-75 font-mono">({count})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                       <span>↳</span>
                       <span>{isAr ? 'التصنيف الفرعي:' : 'Subcategory:'}</span>
                     </span>
@@ -1078,8 +1243,8 @@
                   <Icon name="search" className="w-12 h-12 text-gold-400/60 mx-auto mb-3" />
                   <p className="text-slate-300 font-semibold mb-2">
                     {isAr
-                      ? (activeSection === 'drink' ? 'لا توجد مشروبات في هذا التصنيف حالياً.' : 'لم نجد أطباق تطابق بحثك.')
-                      : (activeSection === 'drink' ? 'No beverages in this category yet.' : 'No dishes match your search.')}
+                      ? (activeSection === 'drink' ? 'لا توجد مشروبات في هذا التصنيف حالياً.' : activeSection === 'shisha' ? 'لا توجد أراكيل في هذا التصنيف حالياً.' : 'لم نجد أطباق تطابق بحثك.')
+                      : (activeSection === 'drink' ? 'No beverages in this category yet.' : activeSection === 'shisha' ? 'No hookahs in this category yet.' : 'No dishes match your search.')}
                   </p>
                   <button
                     onClick={() => { setSearchQuery(''); setActiveTagFilter('all'); setActiveSubcategory('all'); }}
@@ -1227,9 +1392,11 @@
                           />
                           <div className="hidden absolute inset-0 bg-gradient-to-br from-jungle-900 via-obsidian-900 to-jungle-950 flex-col items-center justify-center border-b border-gold-500/10">
                             <div className="w-14 h-14 rounded-2xl bg-jungle-800/80 border border-gold-500/30 flex items-center justify-center text-gold-400 shadow-gold-glow-sm">
-                              <Icon name="utensils" className="w-7 h-7" />
+                              <Icon name={categories.find(c => c.id === dish.categoryId)?.type === 'shisha' ? 'shisha' : 'utensils'} className="w-7 h-7" />
                             </div>
-                            <span className="text-[10px] text-gold-400/70 font-semibold mt-2">{isAr ? 'قائمة جانغل الفاخرة' : 'Jungle Cuisine'}</span>
+                            <span className="text-[10px] text-gold-400/70 font-semibold mt-2">
+                              {categories.find(c => c.id === dish.categoryId)?.type === 'shisha' ? (isAr ? 'أراكيل جانغل الفاخرة' : 'Jungle Hookah Lounge') : (isAr ? 'قائمة جانغل الفاخرة' : 'Jungle Cuisine')}
+                            </span>
                           </div>
 
                           {/* Desktop Hover Zoom Overlay */}
@@ -1250,9 +1417,11 @@
                           className="relative aspect-[16/11] sm:aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-jungle-900 via-obsidian-900 to-jungle-950 flex flex-col items-center justify-center border-b border-gold-500/10 cursor-pointer"
                         >
                           <div className="w-14 h-14 rounded-2xl bg-jungle-800/80 border border-gold-500/30 flex items-center justify-center text-gold-400 shadow-gold-glow-sm group-hover:scale-105 transition-transform">
-                            <Icon name="utensils" className="w-7 h-7" />
+                            <Icon name={categories.find(c => c.id === dish.categoryId)?.type === 'shisha' ? 'shisha' : 'utensils'} className="w-7 h-7" />
                           </div>
-                          <span className="text-[10px] text-gold-400/70 font-semibold mt-2">{isAr ? 'قائمة جانغل الفاخرة' : 'Jungle Cuisine'}</span>
+                          <span className="text-[10px] text-gold-400/70 font-semibold mt-2">
+                            {categories.find(c => c.id === dish.categoryId)?.type === 'shisha' ? (isAr ? 'أراكيل جانغل الفاخرة' : 'Jungle Hookah Lounge') : (isAr ? 'قائمة جانغل الفاخرة' : 'Jungle Cuisine')}
+                          </span>
                           <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 p-1.5 rounded-full bg-black/65 backdrop-blur-md border border-gold-500/40 text-gold-300 shadow">
                             <Icon name="maximize" className="w-3.5 h-3.5" />
                           </div>
@@ -1314,7 +1483,7 @@
                         </div>
                       ) : null}
                       <div className={`${dish.image ? 'hidden' : 'flex'} w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-jungle-900 border border-gold-500/20 items-center justify-center text-gold-400/80 flex-shrink-0 group-hover:scale-105 transition-transform`}>
-                        <Icon name="utensils" className="w-7 h-7" />
+                        <Icon name={categories.find(c => c.id === dish.categoryId)?.type === 'shisha' ? 'shisha' : 'utensils'} className="w-7 h-7" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
@@ -1441,9 +1610,11 @@
                 ) : (
                   <div className="relative aspect-video w-full bg-gradient-to-br from-jungle-900 via-obsidian-900 to-jungle-950 flex flex-col items-center justify-center border-b border-gold-500/20 flex-shrink-0">
                     <div className="w-20 h-20 rounded-2xl bg-jungle-800/80 border border-gold-500/30 flex items-center justify-center text-gold-400 shadow-gold-glow">
-                      <Icon name="utensils" className="w-10 h-10" />
+                      <Icon name={categories.find(c => c.id === selectedDishDetail.categoryId)?.type === 'shisha' ? 'shisha' : 'utensils'} className="w-10 h-10" />
                     </div>
-                    <span className="text-xs sm:text-sm text-gold-400/90 font-semibold mt-3">{isAr ? 'قائمة جانغل الفاخرة' : 'Jungle Cuisine'}</span>
+                    <span className="text-xs sm:text-sm text-gold-400/90 font-semibold mt-3">
+                      {categories.find(c => c.id === selectedDishDetail.categoryId)?.type === 'shisha' ? (isAr ? 'أراكيل جانغل الفاخرة' : 'Jungle Hookah Lounge') : (isAr ? 'قائمة جانغل الفاخرة' : 'Jungle Cuisine')}
+                    </span>
                     <div className="absolute bottom-3.5 left-3.5 rtl:left-auto rtl:right-3.5 flex items-center gap-2">
                       {selectedDishDetail.priceGlass ? (
                         <span className="glass-panel px-3 py-1 rounded-full text-emerald-300 font-black text-xs sm:text-sm border border-emerald-500/50 shadow-gold-glow">

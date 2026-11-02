@@ -279,6 +279,20 @@
             <path d="M6 2v2"></path>
           </svg>
         ),
+        shisha: (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+            <path d="M10 2h4"></path>
+            <path d="M12 2v3"></path>
+            <path d="M8 5h8"></path>
+            <path d="M12 5v4"></path>
+            <path d="M9 9h6"></path>
+            <circle cx="12" cy="15" r="4"></circle>
+            <path d="M12 19v3"></path>
+            <path d="M8 22h8"></path>
+            <path d="M15 13.5c1.8-1 3.5-.5 4.5 1s.5 3.5-1 4.5"></path>
+            <path d="M18.5 19l2.5 2.5"></path>
+          </svg>
+        ),
         grip: (
           <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" className={className} {...props}>
             <circle cx="9" cy="5" r="1.5"></circle>
@@ -362,15 +376,15 @@
         nameEn: '',
         nameAr: '',
         icon: 'utensils',
-        type: 'food', // 'food' | 'drink'
+        type: 'food', // 'food' | 'drink' | 'shisha'
         parentId: '',
       });
-      const [categoryFilterTab, setCategoryFilterTab] = useState('all'); // 'all' | 'food' | 'drink'
+      const [categoryFilterTab, setCategoryFilterTab] = useState('all'); // 'all' | 'food' | 'drink' | 'shisha'
 
       // Filter & Search inside Admin Dishes
       const [dishSearch, setDishSearch] = useState('');
       const [dishCategoryFilter, setDishCategoryFilter] = useState('all');
-      const [dishSectionFilter, setDishSectionFilter] = useState('all'); // 'all' | 'food' | 'drink'
+      const [dishSectionFilter, setDishSectionFilter] = useState('all'); // 'all' | 'food' | 'drink' | 'shisha'
       const [dishImagePreview, setDishImagePreview] = useState('');
       const [isImageProcessing, setIsImageProcessing] = useState(false);
 
@@ -626,13 +640,21 @@
       };
 
       // Dishes: Add/Edit Modal Open
-      const openAddDishModal = (defaultCatId = null) => {
+      const openAddDishModal = (defaultCatId = null, forcedType = null) => {
         setEditingDish(null);
+        let targetCatId = defaultCatId;
+        if (!targetCatId && forcedType === 'shisha') {
+          const shishaCat = categories.find(c => c.type === 'shisha');
+          if (shishaCat) targetCatId = shishaCat.id;
+        }
+        if (!targetCatId) {
+          targetCatId = categories[0]?.id || '';
+        }
         setDishForm({
           nameEn: '',
           nameAr: '',
-          categoryId: defaultCatId || categories[0]?.id || '',
-          price: 25,
+          categoryId: targetCatId,
+          price: forcedType === 'shisha' ? 15000 : 25,
           priceGlass: '',
           priceBottle: '',
           descEn: '',
@@ -971,11 +993,12 @@
       const handleAddCategory = async (e) => {
         e.preventDefault();
         if (!newCategoryForm.nameEn.trim() || !newCategoryForm.nameAr.trim()) return;
+        const defaultIcon = newCategoryForm.type === 'drink' ? 'wine' : newCategoryForm.type === 'shisha' ? 'shisha' : 'utensils';
         const newCat = {
           id: `cat-${Date.now()}`,
           nameEn: newCategoryForm.nameEn.trim(),
           nameAr: newCategoryForm.nameAr.trim(),
-          icon: newCategoryForm.icon || (newCategoryForm.type === 'drink' ? 'wine' : 'utensils'),
+          icon: newCategoryForm.icon || defaultIcon,
           type: newCategoryForm.type || 'food',
           parentId: newCategoryForm.parentId ? newCategoryForm.parentId : null,
           displayOrder: categories.length + 1,
@@ -1348,10 +1371,20 @@
                     )}
                     <button
                       onClick={() => openAddDishModal()}
-                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-400 text-obsidian-950 font-bold text-xs sm:text-sm shadow-gold-glow flex items-center justify-center space-x-1.5 rtl:space-x-reverse active:scale-95 transition"
+                      className="px-3.5 sm:px-4 py-2.5 rounded-xl bg-obsidian-900 hover:bg-obsidian-800 text-slate-200 border border-gold-500/30 font-bold text-xs sm:text-sm flex items-center justify-center space-x-1.5 rtl:space-x-reverse active:scale-95 transition shadow"
                     >
-                      <Icon name="plus" className="w-4 h-4" />
-                      <span>{isAr ? '+ إضافة وجبة جديدة' : '+ Add New Dish'}</span>
+                      <Icon name="utensils" className="w-4 h-4 text-gold-400" />
+                      <span>{isAr ? '+ إضافة وجبة / صنف' : '+ Add Food / Drink'}</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const firstShisha = categories.find(c => c.type === 'shisha');
+                        openAddDishModal(firstShisha ? firstShisha.id : null, 'shisha');
+                      }}
+                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-obsidian-950 font-bold text-xs sm:text-sm shadow-gold-glow flex items-center justify-center space-x-1.5 rtl:space-x-reverse active:scale-95 transition"
+                    >
+                      <Icon name="shisha" className="w-4 h-4" />
+                      <span>{isAr ? '💨 + إضافة أركيلة وسعرها' : '💨 + Add Hookah & Price'}</span>
                     </button>
                   </>
                 )}
@@ -1409,6 +1442,13 @@
                       <Icon name="wine" className="w-3.5 h-3.5" />
                       <span>{isAr ? 'مشروبات' : 'Drinks'}</span>
                     </button>
+                    <button
+                      onClick={() => { setDishSectionFilter('shisha'); setDishCategoryFilter('all'); }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 rtl:space-x-reverse ${dishSectionFilter === 'shisha' ? 'bg-gold-500 text-obsidian-950 shadow' : 'text-slate-300'}`}
+                    >
+                      <Icon name="shisha" className="w-3.5 h-3.5" />
+                      <span>{isAr ? 'أراكيل' : 'Hookah'}</span>
+                    </button>
                   </div>
 
                   <div className="relative flex-1">
@@ -1416,7 +1456,7 @@
                       type="text"
                       value={dishSearch}
                       onChange={(e) => setDishSearch(e.target.value)}
-                      placeholder={isAr ? 'ابحث في المأكولات والمشروبات...' : 'Search food & drinks...'}
+                      placeholder={isAr ? 'ابحث في المأكولات والمشروبات والأراكيل...' : 'Search food, drinks & hookahs...'}
                       className="w-full bg-jungle-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-gold-400"
                     />
                   </div>
@@ -1464,12 +1504,48 @@
                   ) : null}
                 </div>
 
-                {/* Mobile Cards View */}
+                {filteredAdminDishes.length === 0 ? (
+                  <div className="glass-panel rounded-2xl p-10 text-center border border-gold-500/20 my-4">
+                    <div className="w-16 h-16 rounded-full bg-gold-500/10 border border-gold-500/30 flex items-center justify-center mx-auto mb-3 text-gold-400">
+                      <Icon name={dishSectionFilter === 'shisha' ? 'shisha' : dishSectionFilter === 'drink' ? 'wine' : 'utensils'} className="w-8 h-8" />
+                    </div>
+                    <h4 className="text-base font-bold text-slate-200 mb-1">
+                      {isAr ? 'لا توجد أصناف معروضة' : 'No items found'}
+                    </h4>
+                    <p className="text-xs text-slate-400 mb-4 max-w-sm mx-auto">
+                      {dishSectionFilter === 'shisha'
+                        ? (isAr ? 'لم يتم العثور على أراكيل في هذا التصنيف أو البحث. يمكنك إضافة أركيلة وسعرها الآن بسهولة!' : 'No hookahs found matching the filter or search. You can add one easily now!')
+                        : (isAr ? 'لم يتم العثور على نتائج تطابق معايير البحث أو التصفية الحالية.' : 'No items match the current search or section filter.')}
+                    </p>
+                    {dishSectionFilter === 'shisha' ? (
+                      <button
+                        type="button"
+                        onClick={() => openAddDishModal(undefined, 'shisha')}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold text-xs shadow-lg hover:brightness-110 inline-flex items-center gap-2"
+                      >
+                        <Icon name="shisha" className="w-4 h-4" />
+                        <span>{isAr ? '💨 إضافة أركيلة وسعرها' : '💨 Add Hookah & Price'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openAddDishModal()}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-gold-400 to-gold-600 text-black font-bold text-xs shadow-lg hover:brightness-110 inline-flex items-center gap-2"
+                      >
+                        <Icon name="plus" className="w-4 h-4" />
+                        <span>{isAr ? 'إضافة صنف جديد' : 'Add New Item'}</span>
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    {/* Mobile Cards View */}
                 <div className="md:hidden space-y-3">
                   {filteredAdminDishes.map((dish, idx) => {
                     const catObj = categories.find(c => c.id === dish.categoryId);
                     const parentCat = catObj?.parentId ? categories.find(p => p.id === catObj.parentId) : null;
                     const isDrink = catObj?.type === 'drink';
+                    const isShisha = catObj?.type === 'shisha';
                     const isBeingDragged = draggedDishId === dish.id;
                     const isDragOver = dragOverDishId === dish.id && !isBeingDragged;
 
@@ -1542,7 +1618,7 @@
                           />
                         ) : null}
                         <div className={`${dish.image ? 'hidden' : 'flex'} w-14 h-14 rounded-lg bg-jungle-900 border border-gold-500/20 items-center justify-center text-gold-400/60 flex-shrink-0 self-center`}>
-                          <Icon name={isDrink ? 'wine' : 'utensils'} className="w-6 h-6" />
+                          <Icon name={isDrink ? 'wine' : isShisha ? 'shisha' : 'utensils'} className="w-6 h-6" />
                         </div>
 
                         {/* Details */}
@@ -1582,8 +1658,8 @@
                               {parentCat ? `${isAr ? parentCat.nameAr : parentCat.nameEn} > ` : ''}
                               {catObj ? (isAr ? catObj.nameAr : catObj.nameEn) : ''}
                             </span>
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${isDrink ? 'bg-purple-950 text-purple-300 border border-purple-500/30' : 'bg-emerald-950 text-emerald-300 border border-emerald-500/30'}`}>
-                              {isDrink ? (isAr ? '🍸 مشروب' : '🍸 Drink') : (isAr ? '🍽️ مأكولات' : '🍽️ Food')}
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${isDrink ? 'bg-purple-950 text-purple-300 border border-purple-500/30' : isShisha ? 'bg-amber-950 text-amber-300 border border-amber-500/30' : 'bg-emerald-950 text-emerald-300 border border-emerald-500/30'}`}>
+                              {isDrink ? (isAr ? '🍸 مشروب' : '🍸 Drink') : isShisha ? (isAr ? '💨 أركيلة' : '💨 Hookah') : (isAr ? '🍽️ مأكولات' : '🍽️ Food')}
                             </span>
                           </div>
 
@@ -1637,6 +1713,7 @@
                           const catObj = categories.find(c => c.id === dish.categoryId);
                           const parentCat = catObj?.parentId ? categories.find(p => p.id === catObj.parentId) : null;
                           const isDrink = catObj?.type === 'drink';
+                          const isShisha = catObj?.type === 'shisha';
                           const isBeingDragged = draggedDishId === dish.id;
                           const isDragOver = dragOverDishId === dish.id && !isBeingDragged;
 
@@ -1707,7 +1784,7 @@
                                     />
                                   ) : null}
                                   <div className={`${dish.image ? 'hidden' : 'flex'} w-12 h-12 rounded-lg bg-jungle-900 border border-gold-500/20 items-center justify-center text-gold-400/60 flex-shrink-0 text-xs`}>
-                                    <Icon name={isDrink ? 'wine' : 'utensils'} className="w-5 h-5" />
+                                    <Icon name={isDrink ? 'wine' : isShisha ? 'shisha' : 'utensils'} className="w-5 h-5" />
                                   </div>
                                   <div
                                     onTouchStart={(e) => handleTouchStart(dish.id, e)}
@@ -1733,8 +1810,14 @@
                                     {parentCat ? `${isAr ? parentCat.nameAr : parentCat.nameEn} > ` : ''}
                                     {isAr ? (catObj?.nameAr || dish.categoryId) : (catObj?.nameEn || dish.categoryId)}
                                   </span>
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${isDrink ? 'bg-purple-950/80 text-purple-300 border border-purple-500/30' : 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/30'}`}>
-                                    {isDrink ? (isAr ? '🍸 مشروب' : '🍸 Drink') : (isAr ? '🍽️ مأكولات' : '🍽️ Food')}
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                                    isDrink
+                                      ? 'bg-purple-950/80 text-purple-300 border border-purple-500/30'
+                                      : isShisha
+                                        ? 'bg-amber-950/80 text-amber-300 border border-amber-500/30'
+                                        : 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/30'
+                                  }`}>
+                                    {isDrink ? (isAr ? '🍸 مشروب' : '🍸 Drink') : isShisha ? (isAr ? '💨 أركيلة' : '💨 Shisha') : (isAr ? '🍽️ مأكولات' : '🍽️ Food')}
                                   </span>
                                 </div>
                               </td>
@@ -1790,8 +1873,10 @@
                     </table>
                   </div>
                 </div>
-              </div>
+              </>
             )}
+          </div>
+        )}
 
             {/* TAB 2: RESTAURANT PROFILE & DETAILS */}
             {activeTab === 'settings' && (
@@ -2127,6 +2212,14 @@
                       <span>{isAr ? 'المشروبات' : 'Drinks'}</span>
                       <span className="font-mono text-[10px] opacity-80">({categories.filter(c => c.type === 'drink').length})</span>
                     </button>
+                    <button
+                      onClick={() => setCategoryFilterTab('shisha')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1 rtl:space-x-reverse ${categoryFilterTab === 'shisha' ? 'bg-gold-500 text-obsidian-950 shadow' : 'text-slate-300'}`}
+                    >
+                      <Icon name="shisha" className="w-3.5 h-3.5" />
+                      <span>{isAr ? 'الأراكيل' : 'Hookah'}</span>
+                      <span className="font-mono text-[10px] opacity-80">({categories.filter(c => c.type === 'shisha').length})</span>
+                    </button>
                   </div>
 
                   <button
@@ -2134,8 +2227,8 @@
                       setNewCategoryForm({
                         nameEn: '',
                         nameAr: '',
-                        icon: categoryFilterTab === 'drink' ? 'wine' : 'utensils',
-                        type: categoryFilterTab === 'drink' ? 'drink' : 'food',
+                        icon: categoryFilterTab === 'drink' ? 'wine' : categoryFilterTab === 'shisha' ? 'shisha' : 'utensils',
+                        type: categoryFilterTab === 'drink' ? 'drink' : categoryFilterTab === 'shisha' ? 'shisha' : 'food',
                         parentId: ''
                       });
                       setIsCategoryModalOpen(true);
@@ -2374,6 +2467,150 @@
                         )}
                       </div>
                     )}
+
+                    {/* SECTION 3: SHISHA / HOOKAH CATEGORIES */}
+                    {(categoryFilterTab === 'all' || categoryFilterTab === 'shisha') && (
+                      <div className="space-y-3 pt-4">
+                        <div className="flex items-center justify-between pb-2 border-b border-gold-500/20">
+                          <div>
+                            <h4 className="text-sm font-bold text-amber-300 flex items-center gap-2">
+                              <Icon name="shisha" className="w-4 h-4 text-amber-400" />
+                              <span>{isAr ? 'تصنيفات الأراكيل والشيشة (Hookah & Shisha Categories)' : 'Hookah & Shisha Categories'}</span>
+                            </h4>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              {isAr ? 'أقسام الأراكيل مثل (كلاسيك، سبيشال، خلطات مميزة) مع إمكانية إضافة أركيلة وسعرها مباشرة.' : 'Hookah categories with direct hookah & price addition.'}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setNewCategoryForm({ nameEn: '', nameAr: '', icon: 'shisha', type: 'shisha', parentId: '' });
+                              setIsCategoryModalOpen(true);
+                            }}
+                            className="text-xs text-amber-300 hover:text-amber-200 font-bold flex items-center gap-1"
+                          >
+                            <span>+ {isAr ? 'إضافة تصنيف أركيلة' : 'Add Hookah Category'}</span>
+                          </button>
+                        </div>
+
+                        {categories.filter(c => c.type === 'shisha' && !c.parentId).length === 0 ? (
+                          <div className="p-6 rounded-xl bg-jungle-950/60 border border-slate-800 text-center text-xs text-slate-400">
+                            {isAr ? 'لا توجد تصنيفات أراكيل بعد. انقر على الزر أعلاه لإضافة تصنيف مثل (أراكيل كلاسيك أو أراكيل سبيشال).' : 'No hookah categories yet. Click the button above to add one.'}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {categories.filter(c => c.type === 'shisha' && !c.parentId).map((parentCat) => {
+                              const subCats = categories.filter(c => c.type === 'shisha' && c.parentId === parentCat.id);
+                              const totalItems = dishes.filter(d => d.categoryId === parentCat.id || subCats.some(s => s.id === d.categoryId)).length;
+
+                              return (
+                                <div key={parentCat.id} className="glass-card rounded-2xl p-5 border border-amber-500/30 flex flex-col justify-between bg-jungle-950/90">
+                                  <div>
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div className="flex items-center space-x-3 rtl:space-x-reverse">
+                                        <div className="w-10 h-10 rounded-xl bg-amber-950/80 border border-amber-500/40 flex items-center justify-center text-amber-300 shadow-sm">
+                                          <Icon name={parentCat.icon || 'shisha'} className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                          <h4 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                                            <span>{parentCat.nameAr}</span>
+                                            <span className="text-xs font-normal text-amber-300">({parentCat.nameEn})</span>
+                                          </h4>
+                                          <span className="text-[10px] text-slate-400 font-semibold">
+                                            {isAr ? 'تصنيف أراكيل رئيسي' : 'Main Hookah Category'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <span className="text-xs px-2.5 py-1 rounded-full bg-jungle-950 border border-gold-500/30 text-gold-300 font-bold">
+                                        {totalItems} {isAr ? 'أركيلة' : 'hookahs'}
+                                      </span>
+                                    </div>
+
+                                    {/* Subcategories Box if any */}
+                                    {subCats.length > 0 && (
+                                      <div className="mt-4 p-3 rounded-xl bg-black/40 border border-slate-800 space-y-2">
+                                        <div className="flex items-center justify-between text-xs">
+                                          <span className="text-slate-300 font-bold flex items-center gap-1">
+                                            <span>↳</span>
+                                            <span>{isAr ? 'التصنيفات الفرعية:' : 'Subcategories:'}</span>
+                                          </span>
+                                        </div>
+                                        <div className="space-y-1.5 pt-1">
+                                          {subCats.map((sub) => {
+                                            const subCount = dishes.filter(d => d.categoryId === sub.id).length;
+                                            return (
+                                              <div
+                                                key={sub.id}
+                                                className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-jungle-900/80 border border-amber-500/20 text-xs"
+                                              >
+                                                <div className="flex items-center gap-2">
+                                                  <span className="text-amber-400">❖</span>
+                                                  <span className="font-bold text-slate-200">{sub.nameAr}</span>
+                                                  <span className="text-slate-400 text-[10px]">({sub.nameEn})</span>
+                                                  <span className="text-[10px] font-mono text-gold-300">[{subCount}]</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                  <button
+                                                    onClick={() => openAddDishModal(sub.id, 'shisha')}
+                                                    className="text-[10px] text-amber-400 hover:underline"
+                                                    title={isAr ? 'إضافة أركيلة لهذا التفريع' : 'Add hookah here'}
+                                                  >
+                                                    + {isAr ? 'أركيلة' : 'Hookah'}
+                                                  </button>
+                                                  <button
+                                                    onClick={() => handleDeleteCategory(sub.id)}
+                                                    className="text-red-400 hover:text-red-300 text-[10px] font-bold"
+                                                    title={isAr ? 'حذف التفريع' : 'Delete Subcategory'}
+                                                  >
+                                                    ✕
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => openAddDishModal(parentCat.id, 'shisha')}
+                                        className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/30"
+                                      >
+                                        <Icon name="plus" className="w-3.5 h-3.5" />
+                                        <span>{isAr ? 'إضافة أركيلة وسعرها' : 'Add Hookah & Price'}</span>
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setNewCategoryForm({
+                                            nameEn: '',
+                                            nameAr: '',
+                                            icon: 'shisha',
+                                            type: 'shisha',
+                                            parentId: parentCat.id
+                                          });
+                                          setIsCategoryModalOpen(true);
+                                        }}
+                                        className="text-[11px] text-slate-400 hover:text-slate-200"
+                                      >
+                                        + {isAr ? 'تفريعة' : 'Sub'}
+                                      </button>
+                                    </div>
+                                    <button
+                                      onClick={() => handleDeleteCategory(parentCat.id)}
+                                      className="px-2.5 py-1 rounded-lg bg-red-950/60 hover:bg-red-600 text-red-300 text-xs font-semibold transition"
+                                    >
+                                      {isAr ? 'حذف' : 'Delete'}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2392,32 +2629,38 @@
                 </button>
 
                 <h3 className="text-lg sm:text-xl font-bold text-slate-100 gold-gradient-text mb-3">
-                  {editingDish ? (isAr ? 'تعديل الوجبة' : 'Edit Dish') : (isAr ? 'إضافة وجبة جديدة للقائمة' : 'Add New Dish')}
+                  {editingDish
+                    ? (categories.find(c => c.id === dishForm.categoryId)?.type === 'shisha' ? (isAr ? 'تعديل الأركيلة والسعر' : 'Edit Hookah & Price') : (isAr ? 'تعديل الوجبة' : 'Edit Dish'))
+                    : (categories.find(c => c.id === dishForm.categoryId)?.type === 'shisha' ? (isAr ? '💨 إضافة أركيلة جديدة وسعرها' : '💨 Add New Hookah & Price') : (isAr ? 'إضافة وجبة جديدة للقائمة' : 'Add New Dish'))}
                 </h3>
 
                 <form onSubmit={handleSaveDish} className="space-y-3.5 text-xs">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'اسم الوجبة (بالعربية)' : 'Name (Arabic)'}</label>
+                      <label className="block font-semibold text-slate-300 mb-1">
+                        {categories.find(c => c.id === dishForm.categoryId)?.type === 'shisha' ? (isAr ? 'اسم الأركيلة / النكهة (بالعربية)' : 'Hookah / Flavor Name (Arabic)') : (isAr ? 'اسم الوجبة (بالعربية)' : 'Name (Arabic)')}
+                      </label>
                       <input
                         type="text"
                         value={dishForm.nameAr}
                         onChange={(e) => setDishForm({ ...dishForm, nameAr: e.target.value })}
                         required
                         dir="rtl"
-                        placeholder="مثال: ستيك واغيو فاخر"
+                        placeholder={categories.find(c => c.id === dishForm.categoryId)?.type === 'shisha' ? (isAr ? 'مثال: تفاحتين فاخر، ليمون ونعناع، خلطة جانغل' : 'e.g. Double Apple') : (isAr ? 'مثال: ستيك واغيو فاخر' : 'e.g. Wagyu Ribeye Steak')}
                         className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400 font-arabic"
                       />
                     </div>
                     <div>
-                      <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'اسم الوجبة (بالإنكليزية)' : 'Name (English)'}</label>
+                      <label className="block font-semibold text-slate-300 mb-1">
+                        {categories.find(c => c.id === dishForm.categoryId)?.type === 'shisha' ? (isAr ? 'اسم الأركيلة / النكهة (بالإنكليزية)' : 'Hookah / Flavor Name (English)') : (isAr ? 'اسم الوجبة (بالإنكليزية)' : 'Name (English)')}
+                      </label>
                       <input
                         type="text"
                         value={dishForm.nameEn}
                         onChange={(e) => setDishForm({ ...dishForm, nameEn: e.target.value })}
                         required
                         dir="ltr"
-                        placeholder="e.g. Wagyu Ribeye Steak"
+                        placeholder={categories.find(c => c.id === dishForm.categoryId)?.type === 'shisha' ? 'e.g. Double Apple, Lemon Mint, Jungle Signature' : 'e.g. Wagyu Ribeye Steak'}
                         className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400"
                       />
                     </div>
@@ -2454,6 +2697,19 @@
                               );
                             })}
                           </optgroup>
+                          <optgroup label={isAr ? '💨 تصنيفات الأراكيل والشيشة' : '💨 Hookah & Shisha Categories'}>
+                            {categories.filter(c => c.type === 'shisha').map(c => {
+                              const parent = c.parentId ? categories.find(p => p.id === c.parentId) : null;
+                              const label = parent
+                                ? `${isAr ? parent.nameAr : parent.nameEn} > ${isAr ? c.nameAr : c.nameEn}`
+                                : (isAr ? c.nameAr : c.nameEn);
+                              return (
+                                <option key={c.id} value={c.id}>
+                                  {label}
+                                </option>
+                              );
+                            })}
+                          </optgroup>
                         </>
                       )}
                     </select>
@@ -2463,17 +2719,21 @@
                   <div className="p-3.5 rounded-2xl bg-black/45 border border-gold-500/25 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
-                        <Icon name="sparkles" className="w-3.5 h-3.5 text-gold-400" />
-                        <span>{isAr ? 'الأسعار وخيارات التقديم' : 'Pricing & Serving Options'}</span>
+                        <Icon name={categories.find(c => c.id === dishForm.categoryId)?.type === 'shisha' ? 'shisha' : 'sparkles'} className="w-3.5 h-3.5 text-gold-400" />
+                        <span>{categories.find(c => c.id === dishForm.categoryId)?.type === 'shisha' ? (isAr ? 'سعر الأركيلة' : 'Hookah Price') : (isAr ? 'الأسعار وخيارات التقديم' : 'Pricing & Serving Options')}</span>
                       </span>
                       <span className="text-[10px] text-slate-400">
-                        {isAr ? '(أساسي أو كأس وقنينة للمشروبات)' : '(Standard or Glass & Bottle for drinks)'}
+                        {categories.find(c => c.id === dishForm.categoryId)?.type === 'shisha'
+                          ? (isAr ? 'حدد السعر المعتمد للأركيلة' : 'Set the hookah serving price')
+                          : (isAr ? '(أساسي أو كأس وقنينة للمشروبات)' : '(Standard or Glass & Bottle for drinks)')}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div className={`grid grid-cols-1 ${categories.find(c => c.id === dishForm.categoryId)?.type === 'drink' ? 'sm:grid-cols-3' : 'sm:grid-cols-1'} gap-3 pt-1`}>
                       <div>
-                        <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'السعر الأساسي' : 'Base Price'}</label>
+                        <label className="block font-semibold text-slate-300 mb-1">
+                          {categories.find(c => c.id === dishForm.categoryId)?.type === 'shisha' ? (isAr ? 'سعر الأركيلة (دينار عراقي / IQD)' : 'Hookah Price') : (isAr ? 'السعر الأساسي' : 'Base Price')}
+                        </label>
                         <input
                           type="number"
                           min="0"
@@ -2483,36 +2743,40 @@
                           className="w-full bg-jungle-950 border border-slate-700 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-gold-400"
                         />
                       </div>
-                      <div>
-                        <label className="block font-semibold text-emerald-300 mb-1 flex items-center gap-1">
-                          <Icon name="glass" className="w-3.5 h-3.5" />
-                          <span>{isAr ? 'سعر الكأس (اختياري)' : 'Glass Price'}</span>
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          placeholder={isAr ? 'مثال: 15' : 'e.g. 15'}
-                          value={dishForm.priceGlass}
-                          onChange={(e) => setDishForm({ ...dishForm, priceGlass: e.target.value })}
-                          className="w-full bg-jungle-950 border border-slate-700 rounded-xl p-2.5 text-emerald-300 font-mono focus:outline-none focus:border-gold-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="block font-semibold text-amber-300 mb-1 flex items-center gap-1">
-                          <Icon name="bottle" className="w-3.5 h-3.5" />
-                          <span>{isAr ? 'سعر القنينة (اختياري)' : 'Bottle Price'}</span>
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          placeholder={isAr ? 'مثال: 150' : 'e.g. 150'}
-                          value={dishForm.priceBottle}
-                          onChange={(e) => setDishForm({ ...dishForm, priceBottle: e.target.value })}
-                          className="w-full bg-jungle-950 border border-slate-700 rounded-xl p-2.5 text-amber-300 font-mono focus:outline-none focus:border-gold-400"
-                        />
-                      </div>
+                      {categories.find(c => c.id === dishForm.categoryId)?.type === 'drink' && (
+                        <>
+                          <div>
+                            <label className="block font-semibold text-emerald-300 mb-1 flex items-center gap-1">
+                              <Icon name="glass" className="w-3.5 h-3.5" />
+                              <span>{isAr ? 'سعر الكأس (اختياري)' : 'Glass Price'}</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder={isAr ? 'مثال: 15' : 'e.g. 15'}
+                              value={dishForm.priceGlass}
+                              onChange={(e) => setDishForm({ ...dishForm, priceGlass: e.target.value })}
+                              className="w-full bg-jungle-950 border border-slate-700 rounded-xl p-2.5 text-emerald-300 font-mono focus:outline-none focus:border-gold-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block font-semibold text-amber-300 mb-1 flex items-center gap-1">
+                              <Icon name="bottle" className="w-3.5 h-3.5" />
+                              <span>{isAr ? 'سعر القنينة (اختياري)' : 'Bottle Price'}</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder={isAr ? 'مثال: 150' : 'e.g. 150'}
+                              value={dishForm.priceBottle}
+                              onChange={(e) => setDishForm({ ...dishForm, priceBottle: e.target.value })}
+                              className="w-full bg-jungle-950 border border-slate-700 rounded-xl p-2.5 text-amber-300 font-mono focus:outline-none focus:border-gold-400"
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -2718,39 +2982,51 @@
                 </h3>
 
                 <form onSubmit={handleAddCategory} className="space-y-3.5 text-xs">
-                  {/* Category Type (Food vs Drink) */}
+                  {/* Category Type (Food vs Drink vs Shisha) */}
                   <div>
                     <label className="block font-semibold text-slate-300 mb-1.5">{isAr ? 'نوع وتصنيف القسم' : 'Section / Type'}</label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <button
                         type="button"
                         onClick={() => setNewCategoryForm(prev => ({ ...prev, type: 'food', parentId: '', icon: 'utensils' }))}
-                        className={`p-2.5 rounded-xl border text-center font-bold flex items-center justify-center gap-2 transition ${
+                        className={`p-2.5 rounded-xl border text-center font-bold flex items-center justify-center gap-1.5 transition ${
                           (newCategoryForm.type || 'food') === 'food'
                             ? 'bg-gold-500/15 border-gold-500 text-gold-300 shadow-gold-glow-sm'
                             : 'bg-jungle-900 border-slate-700 text-slate-400 hover:text-slate-200'
                         }`}
                       >
                         <Icon name="utensils" className="w-4 h-4 text-gold-400" />
-                        <span>{isAr ? '🍽️ مأكولات (Food)' : '🍽️ Food'}</span>
+                        <span>{isAr ? 'مأكولات' : 'Food'}</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setNewCategoryForm(prev => ({ ...prev, type: 'drink', icon: 'wine' }))}
-                        className={`p-2.5 rounded-xl border text-center font-bold flex items-center justify-center gap-2 transition ${
+                        className={`p-2.5 rounded-xl border text-center font-bold flex items-center justify-center gap-1.5 transition ${
                           newCategoryForm.type === 'drink'
                             ? 'bg-gold-500/15 border-gold-500 text-gold-300 shadow-gold-glow-sm'
                             : 'bg-jungle-900 border-slate-700 text-slate-400 hover:text-slate-200'
                         }`}
                       >
                         <Icon name="wine" className="w-4 h-4 text-gold-400" />
-                        <span>{isAr ? '🍸 مشروبات (Drinks)' : '🍸 Drinks'}</span>
+                        <span>{isAr ? 'مشروبات' : 'Drinks'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewCategoryForm(prev => ({ ...prev, type: 'shisha', icon: 'shisha' }))}
+                        className={`p-2.5 rounded-xl border text-center font-bold flex items-center justify-center gap-1.5 transition ${
+                          newCategoryForm.type === 'shisha'
+                            ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-gold-glow-sm'
+                            : 'bg-jungle-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Icon name="shisha" className="w-4 h-4 text-amber-400" />
+                        <span>{isAr ? 'أراكيل' : 'Hookah'}</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* If Drink: Option for Subcategory nesting (تفرع) */}
-                  {newCategoryForm.type === 'drink' && (
+                  {/* Option for Subcategory nesting (تفرع) */}
+                  {(newCategoryForm.type === 'drink' || newCategoryForm.type === 'shisha') && (
                     <div className="p-3 rounded-2xl bg-black/40 border border-slate-700/80 space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="font-semibold text-slate-200 flex items-center gap-1.5">
@@ -2771,7 +3047,7 @@
                           {isAr ? '⭐ تصنيف رئيسي مباشر (بدون تفرع)' : '⭐ Main Category (Top Level)'}
                         </option>
                         {categories
-                          .filter(c => c.type === 'drink' && !c.parentId)
+                          .filter(c => c.type === newCategoryForm.type && !c.parentId)
                           .map(c => (
                             <option key={c.id} value={c.id}>
                               {isAr ? `↳ متفرع تحت: ${c.nameAr}` : `↳ Nested under: ${c.nameEn}`}
@@ -2779,9 +3055,9 @@
                           ))}
                       </select>
                       <p className="text-[10px] text-slate-400">
-                        {isAr
-                          ? 'مثال: اجعل هذا التصنيف (ويسكي أسود) متفرعاً تحت التصنيف الرئيسي (ويسكي)'
-                          : 'Example: Nest "Black Whiskey" under parent "Whiskey"'}
+                        {newCategoryForm.type === 'shisha'
+                          ? (isAr ? 'مثال: اجعل هذا التصنيف متفرعاً تحت (أراكيل كلاسيك أو أراكيل سبيشال)' : 'Example: Nest flavor under main hookah category')
+                          : (isAr ? 'مثال: اجعل هذا التصنيف (ويسكي أسود) متفرعاً تحت التصنيف الرئيسي (ويسكي)' : 'Example: Nest "Black Whiskey" under parent "Whiskey"')}
                       </p>
                     </div>
                   )}
@@ -2794,7 +3070,7 @@
                       onChange={(e) => setNewCategoryForm({ ...newCategoryForm, nameAr: e.target.value })}
                       required
                       dir="rtl"
-                      placeholder={newCategoryForm.type === 'drink' ? (isAr ? 'مثال: ويسكي أو ويسكي أسود' : 'e.g. Whiskey') : (isAr ? 'مثال: مقبلات ساخنة' : 'e.g. Hot Starters')}
+                      placeholder={newCategoryForm.type === 'shisha' ? (isAr ? 'مثال: أراكيل كلاسيك أو أراكيل سبيشال' : 'e.g. Classic Hookah') : newCategoryForm.type === 'drink' ? (isAr ? 'مثال: ويسكي أو ويسكي أسود' : 'e.g. Whiskey') : (isAr ? 'مثال: مقبلات ساخنة' : 'e.g. Hot Starters')}
                       className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400 font-arabic"
                     />
                   </div>
@@ -2806,15 +3082,15 @@
                       onChange={(e) => setNewCategoryForm({ ...newCategoryForm, nameEn: e.target.value })}
                       required
                       dir="ltr"
-                      placeholder={newCategoryForm.type === 'drink' ? 'e.g. Whiskey or Black Whiskey' : 'e.g. Hot Starters'}
+                      placeholder={newCategoryForm.type === 'shisha' ? 'e.g. Classic Hookah or Special Shisha' : newCategoryForm.type === 'drink' ? 'e.g. Whiskey or Black Whiskey' : 'e.g. Hot Starters'}
                       className="w-full bg-jungle-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-gold-400"
                     />
                   </div>
 
                   <div>
                     <label className="block font-semibold text-slate-300 mb-1">{isAr ? 'أيقونة التصنيف' : 'Category Icon'}</label>
-                    <div className="grid grid-cols-6 gap-1.5">
-                      {['utensils', 'wine', 'glass', 'bottle', 'coffee', 'sparkles'].map(iconName => (
+                    <div className="grid grid-cols-7 gap-1.5">
+                      {['utensils', 'wine', 'glass', 'bottle', 'coffee', 'shisha', 'sparkles'].map(iconName => (
                         <button
                           key={iconName}
                           type="button"
